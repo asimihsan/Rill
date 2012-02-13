@@ -1,0 +1,6 @@
+win32/debug/
+*.pdb
+*.pgd
+pgort90.dll
+*.pgc
+*.ilk
