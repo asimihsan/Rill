@@ -26,6 +26,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/exception/all.hpp> 
 namespace po = boost::program_options;
+#include <boost/thread/thread.hpp>
 
 #ifdef WIN32
 #define LIBSSH2_API __declspec(dllexport)
@@ -66,6 +67,106 @@ int sock;
     #include <windows.h>
 #endif
 // ---------------------------------------------------------------------------
+
+int min(int a, int b)
+{
+    if (a < b)
+    {
+        return a;
+    }
+    else
+    {
+        return b;
+    }
+}
+
+int levenstein_distance(const std::string& source, const std::string& target)
+{
+
+  // Step 1
+
+  const int n = source.length();
+  const int m = target.length();
+  if (n == 0) {
+    return m;
+  }
+  if (m == 0) {
+    return n;
+  }
+
+  // Good form to declare a TYPEDEF
+
+  typedef std::vector< std::vector<int> > Tmatrix; 
+
+  Tmatrix matrix(n+1);
+
+  // Size the vectors in the 2.nd dimension. Unfortunately C++ doesn't
+  // allow for allocation on declaration of 2.nd dimension of vec of vec
+
+  for (int i = 0; i <= n; i++) {
+    matrix[i].resize(m+1);
+  }
+
+  // Step 2
+
+  for (int i = 0; i <= n; i++) {
+    matrix[i][0]=i;
+  }
+
+  for (int j = 0; j <= m; j++) {
+    matrix[0][j]=j;
+  }
+
+  // Step 3
+
+  for (int i = 1; i <= n; i++) {
+
+    const char s_i = source[i-1];
+
+    // Step 4
+
+    for (int j = 1; j <= m; j++) {
+
+      const char t_j = target[j-1];
+
+      // Step 5
+
+      int cost;
+      if (s_i == t_j) {
+        cost = 0;
+      }
+      else {
+        cost = 1;
+      }
+
+      // Step 6
+
+      const int above = matrix[i-1][j];
+      const int left = matrix[i][j-1];
+      const int diag = matrix[i-1][j-1];
+      int cell = min( above + 1, min(left + 1, diag + cost));
+
+      // Step 6A: Cover transposition, in addition to deletion,
+      // insertion and substitution. This step is taken from:
+      // Berghel, Hal ; Roach, David : "An Extension of Ukkonen's 
+      // Enhanced Dynamic Programming ASM Algorithm"
+      // (http://www.acm.org/~hlb/publications/asm/asm.html)
+
+      if (i>2 && j>2) {
+        int trans=matrix[i-2][j-2]+1;
+        if (source[i-2]!=t_j) trans++;
+        if (s_i!=target[j-2]) trans++;
+        if (cell>trans) cell=trans;
+      }
+
+      matrix[i][j]=cell;
+    }
+  }
+
+  // Step 7
+
+  return matrix[n][m];
+}
 
 void cleanup()
 {
@@ -132,17 +233,17 @@ static void kbd_callback(const char *name, int name_len,
     (void)abstract;
 } /* kbd_callback */
 
-static int waitsocket(int socket_fd, LIBSSH2_SESSION *session)
+static int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout)
 {
-    struct timeval timeout;
+    struct timeval timeout_struct;
     int rc;
     fd_set fd;
     fd_set *writefd = NULL;
     fd_set *readfd = NULL;
     int dir;
  
-    timeout.tv_sec = 10;
-    timeout.tv_usec = 0;
+    timeout_struct.tv_sec = timeout;
+    timeout_struct.tv_usec = 0;
  
     FD_ZERO(&fd);
  
@@ -158,8 +259,92 @@ static int waitsocket(int socket_fd, LIBSSH2_SESSION *session)
     if(dir & LIBSSH2_SESSION_BLOCK_OUTBOUND)
         writefd = &fd;
  
-    rc = select(socket_fd + 1, readfd, writefd, NULL, &timeout);
+    rc = select(socket_fd + 1, readfd, writefd, NULL, &timeout_struct);
  
+    return rc;
+}
+
+static std::string read_from_channel(LIBSSH2_CHANNEL *channel, int size, int timeout)
+{    
+    if (size <= 0)
+    {
+        size = 0x4000;
+    }
+    char *buffer = (char *)malloc(size);    
+    std::string output;
+    int time_elapsed;
+    int byte_count;
+    int rc;
+    for (time_elapsed = 0, byte_count = 0;
+         (time_elapsed < timeout) && (byte_count < size);
+         time_elapsed += 1)
+    {
+        do
+        {            
+            rc = libssh2_channel_read(channel, buffer, size);
+            if (rc > 0)
+            {
+                int i;
+                byte_count += rc;
+                //fprintf(stderr, "We read:\n");
+                for(i=0; i < rc; ++i)
+                {
+                    fputc( buffer[i], stderr);
+                }                    
+                //fprintf(stderr, "\n");
+            }
+            else
+            {
+                if (rc != LIBSSH2_ERROR_EAGAIN)
+                {
+                    /* no need to output this for the EAGAIN case */ 
+                    fprintf(stderr, "libssh2_channel_read returned %d\n", rc);
+                }
+            }
+        }
+        while( rc > 0 );
+        output.append(buffer);
+
+        /* this is due to blocking that would occur otherwise so we loop on
+           this condition */ 
+        if(rc == LIBSSH2_ERROR_EAGAIN)
+        {
+            waitsocket(sock, session, 1);
+        }
+        else
+        {
+            break;
+        }
+    } // outer for loop based on time and size
+    free(buffer);
+    return output;
+}
+
+static int sync_original_prompt(LIBSSH2_CHANNEL *channel)
+{
+    int rc = 0;
+    char *line_break = "\n";
+    std::string x, a, b;
+
+    // Clear out the cache before getting the prompt;
+    read_from_channel(channel, 10000, 1);
+
+    boost::this_thread::sleep(boost::posix_time::milliseconds(100));    
+    libssh2_channel_write(channel, line_break, 1);
+    boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+    a = read_from_channel(channel, 1000, 1);
+
+    boost::this_thread::sleep(boost::posix_time::milliseconds(100));    
+    libssh2_channel_write(channel, line_break, 1);
+    boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+    b = read_from_channel(channel, 1000, 1);
+
+    int ld = levenstein_distance(a, b);
+    int len_a = a.length();
+    if (len_a == 0)
+        rc = 1;
+    else if (float(ld) / len_a > 0.4)
+        rc = 1;
     return rc;
 }
 
@@ -171,6 +356,11 @@ int main(int argc, char *argv[])
     const char *fingerprint;
     char *userauthlist;
     int bytecount = 0;
+    std::string output;
+
+    std::string unset_prompt = std::string("unset PROMPT_COMMAND\n");
+    std::string unique_prompt = std::string("PS1='[PEXPECT]\\$ '\n");
+
 #ifdef WIN32
     WSADATA wsadata;
 
@@ -301,19 +491,6 @@ int main(int argc, char *argv[])
         auth_pw |= 4;
     }
 
-    /* if we got an 4. argument we set this option if supported */
-    if(argc > 4) {
-        if ((auth_pw & 1) && !strcasecmp(argv[4], "-p")) {
-            auth_pw = 1;
-        }
-        if ((auth_pw & 2) && !strcasecmp(argv[4], "-i")) {
-            auth_pw = 2;
-        }
-        if ((auth_pw & 4) && !strcasecmp(argv[4], "-k")) {
-            auth_pw = 4;
-        }
-    }
-
     if (auth_pw & 1) {
         /* We could authenticate via password */
         if (libssh2_userauth_password(session, username, password)) {
@@ -321,15 +498,6 @@ int main(int argc, char *argv[])
             goto shutdown;
         } else {
             printf("\tAuthentication by password succeeded.\n");
-        }
-    } else if (auth_pw & 2) {
-        /* Or via keyboard-interactive */
-        if (libssh2_userauth_keyboard_interactive(session, username,
-                                                  &kbd_callback) ) {
-            printf("\tAuthentication by keyboard-interactive failed!\n");
-            goto shutdown;
-        } else {
-            printf("\tAuthentication by keyboard-interactive succeeded.\n");
         }
     } else if (auth_pw & 4) {
         /* Or by public key */
@@ -354,7 +522,7 @@ int main(int argc, char *argv[])
     /* Some environment variables may be set,
      * It's up to the server which ones it'll allow though
      */
-    libssh2_channel_setenv(channel, "FOO", "bar");
+    //libssh2_channel_setenv(channel, "PS1", "[PEXPECT]");
 
     /* Request a terminal with 'vanilla' terminal emulation
      * See /etc/termcap for more options
@@ -383,43 +551,19 @@ int main(int argc, char *argv[])
      * A channel can be freed with: libssh2_channel_free()
      */
     libssh2_channel_set_blocking(channel, 0);
+    
+    //std::cout << "first read..." << std::endl;
+    rc = sync_original_prompt(channel);
+    //std::cout << "sync_original_prompt: " << rc << std::endl;
+    //std::cout << "first read completed." << std::endl;
+
+    libssh2_channel_write(channel, unset_prompt.c_str(), unset_prompt.length());
+    libssh2_channel_write(channel, unique_prompt.c_str(), unique_prompt.length());    
+    
     libssh2_channel_write(channel, command.c_str(), command.length());
-
-    for( ;; )
-    {
-        /* loop until we block */ 
-        int rc;
-        do
-        {
-            char buffer[0x4000];
-            rc = libssh2_channel_read( channel, buffer, sizeof(buffer) );
-
-            if( rc > 0 )
-            {
-                int i;
-                bytecount += rc;
-                fprintf(stderr, "We read:\n");
-                for( i=0; i < rc; ++i )
-                    fputc( buffer[i], stderr);
-                fprintf(stderr, "\n");
-            }
-            else {
-                if( rc != LIBSSH2_ERROR_EAGAIN )
-                    /* no need to output this for the EAGAIN case */ 
-                    fprintf(stderr, "libssh2_channel_read returned %d\n", rc);
-            }
-        }
-        while( rc > 0 );
- 
-        /* this is due to blocking that would occur otherwise so we loop on
-           this condition */ 
-        if( rc == LIBSSH2_ERROR_EAGAIN )
-        {
-            waitsocket(sock, session);
-        }
-        else
-            break;
-    }
+    output = read_from_channel(channel, -1, 5);
+    std::cout << "-------" << std::endl;
+    std::cout << output << std::endl;
 
   skip_shell:
     if (channel) {

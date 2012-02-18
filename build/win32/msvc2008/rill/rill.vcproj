@@ -116,8 +116,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
+				Optimization="3"
+				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
+				FavorSizeOrSpeed="1"
 				AdditionalIncludeDirectories="&quot;..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;$(BOOST_HOME)&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS"
 				RuntimeLibrary="0"
