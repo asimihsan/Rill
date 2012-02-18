@@ -80,3 +80,12 @@ allocated by libssh2. D'oh! Just copy/paste a handle sample.
 
 - Build, run simple, check it works.
 -------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+    Building OpenPGM
+-------------------------------------------------------------------------------
+
+- Follow: http://code.google.com/p/openpgm/wiki/OpenPgm5CReferenceBuildLibraryWindows
+
+
+-------------------------------------------------------------------------------

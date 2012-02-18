@@ -86,6 +86,93 @@ def build_libssh2(libssh2_directory, deps_directory):
     destination = os.path.join(deps_directory, "libssh2.lib")
     shutil.copy(output_file, destination)
 
+def build_yaml(yaml_directory, deps_directory):
+    logger = logging.getLogger("%s.build_yaml" % (APP_NAME, ))
+    logger.debug("entry. yaml_directory: %s, deps_directory: %s" % (yaml_directory, deps_directory))
+
+    sln_filepath = os.path.join(yaml_directory, "win32", "vs2008", "libyaml.sln")
+    if not os.path.isfile(sln_filepath):
+        logger.error("MSVC solution file %s does not exist." % (sln_filepath, ))
+        return
+    cmd = r"msbuild.exe %s /target:yaml /p:Configuration=Release" % (sln_filepath, )
+    logger.debug("executing: %s" % (cmd, ))
+    proc = subprocess.Popen(cmd,
+                            cwd=yaml_directory,
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        print line.rstrip("\n")
+    proc.wait()
+
+    output_file = os.path.join(yaml_directory,
+                               "win32",
+                               "vs2008",
+                               "Output",
+                               "Release",
+                               "lib",
+                               "yaml.lib")
+    if not os.path.isfile(output_file):
+        logger.error("Cannot file output file: %s" % (output_file, ))
+        return
+    destination = os.path.join(deps_directory, "yaml.lib")
+    shutil.copy(output_file, destination)
+
+def build_libpgm(libpgm_directory, deps_directory):
+    logger = logging.getLogger("%s.build_libpgm" % (APP_NAME, ))
+    logger.debug("entry. libpgm_directory: %s, deps_directory: %s" % (libpgm_directory, deps_directory))
+
+    sln_filepath = os.path.join(libpgm_directory, "openpgm", "pgm", "build", "OpenPGM.sln")
+    if not os.path.isfile(sln_filepath):
+        logger.error("MSVC solution file %s does not exist." % (sln_filepath, ))
+        return
+    cmd = r"msbuild.exe %s /target:libpgm /p:Configuration=Release" % (sln_filepath, )
+    logger.debug("executing: %s" % (cmd, ))
+    proc = subprocess.Popen(cmd,
+                            cwd=libpgm_directory,
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        print line.rstrip("\n")
+    proc.wait()
+    output_file = os.path.join(libpgm_directory,
+                               "openpgm",
+                               "pgm",
+                               "build",
+                               "lib",
+                               "Release",
+                               "libpgm.lib")
+    if not os.path.isfile(output_file):
+        logger.error("Cannot file output file: %s" % (output_file, ))
+        return
+    destination = os.path.join(deps_directory, "libpgm.lib")
+    shutil.copy(output_file, destination)
+
+def build_zeromq(zeromq_directory, deps_directory):
+    logger = logging.getLogger("%s.build_zeromq" % (APP_NAME, ))
+    logger.debug("entry. zeromq_directory: %s, deps_directory: %s" % (zeromq_directory, deps_directory))
+
+    sln_filepath = os.path.join(zeromq_directory, "builds", "msvc", "msvc.sln")
+    if not os.path.isfile(sln_filepath):
+        logger.error("MSVC solution file %s does not exist." % (sln_filepath, ))
+        return
+    cmd = r"msbuild.exe %s /target:libzmq /p:Configuration=Release" % (sln_filepath, )
+    logger.debug("executing: %s" % (cmd, ))
+    proc = subprocess.Popen(cmd,
+                            cwd=zeromq_directory,
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        print line.rstrip("\n")
+    proc.wait()
+
+    output_file = os.path.join(zeromq_directory,
+                               "builds",
+                               "msvc",
+                               "Release",
+                               "libzmq.lib")
+    if not os.path.isfile(output_file):
+        logger.error("Cannot file output file: %s" % (output_file, ))
+        return
+    destination = os.path.join(deps_directory, "libzmq.lib")
+    shutil.copy(output_file, destination)
+
 def main():
     logger = logging.getLogger("%s.main" % (APP_NAME, ))
     logger.debug("entry.")
@@ -120,11 +207,23 @@ def main():
     assert(len(libssh2_directory) == 1)
     libssh2_directory = os.path.abspath(libssh2_directory[0])
     assert(os.path.isdir(libssh2_directory))
+
+    yaml_directory = glob(os.path.join(lib_directory, "yaml*"))
+    assert(len(yaml_directory) == 1)
+    yaml_directory = os.path.abspath(yaml_directory[0])
+    assert(os.path.isdir(yaml_directory))
+
+    zeromq_directory = glob(os.path.join(lib_directory, "zeromq*"))
+    assert(len(zeromq_directory) == 1)
+    zeromq_directory = os.path.abspath(zeromq_directory[0])
+    assert(os.path.isdir(zeromq_directory))
     # ----------------------------------------------------------------------
 
     build_zlib(zlib_directory, deps_directory)
     build_openssl(openssl_directory, deps_directory)
     build_libssh2(libssh2_directory, deps_directory)
+    build_yaml(yaml_directory, deps_directory)
+    build_zeromq(zeromq_directory, deps_directory)
 
 if __name__ == "__main__":
     main()

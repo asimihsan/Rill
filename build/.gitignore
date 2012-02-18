@@ -12,3 +12,5 @@
 *.user
 *.ncb
 *.rsp
+*.exp
+*.lib
