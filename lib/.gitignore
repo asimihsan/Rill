@@ -1,3 +1,8 @@
+libssh*/win32/Debug*
+libssh*/win32/Release*
+openssl*/out32*
+openssl*/tmp32*
+
 *.htm
 *.exe
 *.manifest
@@ -17,3 +22,6 @@
 pgort90.dll
 *.pgc
 *.ilk
+*.dll
+*.lib
+*.exp
