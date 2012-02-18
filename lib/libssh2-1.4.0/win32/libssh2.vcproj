@@ -165,7 +165,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="ws2_32.lib libeay32.lib zlib.lib"
 				OutputFile="Debug_lib\libssh2d.lib"
 				AdditionalLibraryDirectories="..\..\..\dep"
 				SuppressStartupBanner="true"
@@ -312,12 +311,15 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
-				InlineFunctionExpansion="1"
+				Optimization="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="true"
+				FavorSizeOrSpeed="1"
+				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="..\win32;..\include;&quot;..\..\openssl-1.0.0g\include&quot;;&quot;..\..\zlib-1.2.6\&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_LIB"
 				StringPooling="true"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				PrecompiledHeaderFile=".\Release_lib/libssh2.pch"
 				AssemblerListingLocation=".\Release_lib/"
@@ -339,7 +341,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="ws2_32.lib libeay32.lib zlib.lib"
 				OutputFile="Release_lib\libssh2.lib"
 				AdditionalLibraryDirectories="..\..\..\dep"
 				SuppressStartupBanner="true"

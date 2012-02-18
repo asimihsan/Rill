@@ -7,10 +7,30 @@
  * "ssh2 host user password [-p|-i|-k]"
  */
 
+#include <cstdio>
+#include <cctype>
+#include <cerrno>
+#include <istream>
+#include <iostream>
+#include <ostream>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <set>
+#include <cstdlib>
+
+#include <boost/asio.hpp>
+#include <boost/bind.hpp>
+#include <boost/program_options.hpp>
+#include <boost/foreach.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/exception/all.hpp> 
+namespace po = boost::program_options;
+
 #ifdef WIN32
 #define LIBSSH2_API __declspec(dllexport)
 #endif
-#include "libssh2_config.h"
+#include <libssh2_config.h>
 #include <libssh2.h>
 #include <libssh2_sftp.h>
 
@@ -32,12 +52,6 @@
 # ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-
-#include <sys/types.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <stdio.h>
-#include <ctype.h>
 
 LIBSSH2_SESSION *session;
 LIBSSH2_CHANNEL *channel;
@@ -70,15 +84,7 @@ void cleanup()
     exit(0);
 }
 
-#if !defined(WIN32)
-    void stop(int s)
-    {
-        printf("CTRL-C\n");
-        s = s;
-        cleanup();
-        exit(0);
-    }
-#else
+#if defined(WIN32)
     BOOL CtrlHandler(DWORD fdwCtrlType)
     {
         switch(fdwCtrlType)
@@ -91,6 +97,14 @@ void cleanup()
             return FALSE;
         } // switch(fdwCtrlType)
     } // BOOL CtrlHandler(DWORD fdwCtrlType)
+#else
+    void stop(int s)
+    {
+        printf("CTRL-C\n");
+        s = s;
+        cleanup();
+        exit(0);
+    }
 #endif
 
 
@@ -98,7 +112,6 @@ const char *keyfile1="~/.ssh/id_rsa.pub";
 const char *keyfile2="~/.ssh/id_rsa";
 const char *username="ubuntu";
 const char *password="password";
-const char *command = "tail -f /home/ubuntu/test.log\n";
 
 static void kbd_callback(const char *name, int name_len,
                          const char *instruction, int instruction_len,
@@ -153,7 +166,7 @@ static int waitsocket(int socket_fd, LIBSSH2_SESSION *session)
 int main(int argc, char *argv[])
 {
     unsigned long hostaddr;
-    int rc, i, auth_pw = 0;
+    int rc, auth_pw = 0;
     struct sockaddr_in sin;
     const char *fingerprint;
     char *userauthlist;
@@ -187,20 +200,52 @@ int main(int argc, char *argv[])
     #endif
     // ---------------------------------------------------------------------------
 
-    if (argc > 1) {
-        hostaddr = inet_addr(argv[1]);
-    } else {
-        hostaddr = htonl(0x7F000001);
-    }
+    // ---------------------------------------------------------------------------
+    //  Parse, validate command-line arguments.
+    // ---------------------------------------------------------------------------
+    po::options_description desc("Allowed options");
+    desc.add_options()
+        ("help", "Produce help message.")
+        ("host,H", po::value< std::string >(), "An IP address or DNS hostname.")
+        ("command,C", po::value< std::string >(), "Command to execute.")
+        ("zeromq_bind,b", po::value< std::vector<std::string> >(), "One or more ip_address:port pairs to publish ZeroMQ messages from, e.g. 'tcp://127.0.0.1:5556'.")
+        ("verbose,V", "Verbose debug output.");  
+    po::positional_options_description positional_desc;
+    positional_desc.add("command", -1);
 
-    if(argc > 2) {
-        username = argv[2];
-    }
-    if(argc > 3) {
-        password = argv[3];
-    }
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv).options(desc).positional(positional_desc).run(),
+              vm);
+    po::notify(vm);
 
-    rc = libssh2_init (0);
+    std::string host;
+    if (!vm.count("host"))
+    {
+        std::cout << "Need to specify an IP address or DNS hostname for the host." << std::endl;
+        std::cout << desc;
+        exit(2);
+    }
+    else
+    {
+        host = vm["host"].as< std::string >();
+        hostaddr = inet_addr(host.c_str());
+    } // if (!vm.count("host"))
+
+    std::string command;
+    if (!vm.count("command"))
+    {
+        std::cout << "Need to specific a command to execute." << std::endl;
+        std::cout << desc;
+        exit(3);
+    }
+    else
+    {
+        command = vm["command"].as< std::string >();
+        command.append("\n");
+    } // if (!vm.count("command"))
+    // ---------------------------------------------------------------------------
+
+    rc = libssh2_init(0);
     if (rc != 0) {
         fprintf (stderr, "libssh2 initialization failed (%d)\n", rc);
         return 1;
@@ -235,11 +280,13 @@ int main(int argc, char *argv[])
      * call
      */
     fingerprint = libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA1);
+    /*
     printf("Fingerprint: ");
     for(i = 0; i < 20; i++) {
         printf("%02X ", (unsigned char)fingerprint[i]);
     }
     printf("\n");
+    */
 
     /* check what authentication methods are available */
     userauthlist = libssh2_userauth_list(session, username, strlen(username));
@@ -336,7 +383,7 @@ int main(int argc, char *argv[])
      * A channel can be freed with: libssh2_channel_free()
      */
     libssh2_channel_set_blocking(channel, 0);
-    libssh2_channel_write(channel, command, strlen(command));
+    libssh2_channel_write(channel, command.c_str(), command.length());
 
     for( ;; )
     {
