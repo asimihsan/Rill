@@ -340,10 +340,10 @@ int main(int argc, char *argv[])
             #else
             close(sock);
             #endif
-            libssh2_exit();
+            //libssh2_exit();
 
             sock = socket(AF_INET, SOCK_STREAM, 0);
-            libssh2_init(0);
+            //libssh2_init(0);
             connect(sock,
                     (struct sockaddr*)(&sin),
                     sizeof(struct sockaddr_in));
