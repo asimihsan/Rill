@@ -173,6 +173,32 @@ def build_zeromq(zeromq_directory, deps_directory):
     destination = os.path.join(deps_directory, "libzmq.lib")
     shutil.copy(output_file, destination)
 
+def build_re2(re2_directory, deps_directory):
+    logger = logging.getLogger("%s.build_re2" % (APP_NAME, ))
+    logger.debug("entry. re2_directory: %s, deps_directory: %s" % (re2_directory, deps_directory))
+
+    sln_filepath = os.path.join(re2_directory, "re2.sln")
+    if not os.path.isfile(sln_filepath):
+        logger.error("MSVC solution file %s does not exist." % (sln_filepath, ))
+        return
+    cmd = r"msbuild.exe %s /target:re2 /p:Configuration=Release" % (sln_filepath, )
+    logger.debug("executing: %s" % (cmd, ))
+    proc = subprocess.Popen(cmd,
+                            cwd=re2_directory,
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        print line.rstrip("\n")
+    proc.wait()
+
+    output_file = os.path.join(re2_directory,
+                               "Release",
+                               "libzmq.lib")
+    if not os.path.isfile(output_file):
+        logger.error("Cannot file output file: %s" % (output_file, ))
+        return
+    destination = os.path.join(deps_directory, "re2.lib")
+    shutil.copy(output_file, destination)
+
 def main():
     logger = logging.getLogger("%s.main" % (APP_NAME, ))
     logger.debug("entry.")
@@ -217,6 +243,11 @@ def main():
     assert(len(zeromq_directory) == 1)
     zeromq_directory = os.path.abspath(zeromq_directory[0])
     assert(os.path.isdir(zeromq_directory))
+
+    re2_directory = glob(os.path.join(lib_directory, "re2*"))
+    assert(len(re2_directory) == 1)
+    re2_directory = os.path.abspath(re2_directory[0])
+    assert(os.path.isdir(re2_directory))
     # ----------------------------------------------------------------------
 
     build_zlib(zlib_directory, deps_directory)
@@ -224,6 +255,7 @@ def main():
     build_libssh2(libssh2_directory, deps_directory)
     build_yaml(yaml_directory, deps_directory)
     build_zeromq(zeromq_directory, deps_directory)
+    #build_re2(re2_directory, deps_directory)
 
 if __name__ == "__main__":
     main()
