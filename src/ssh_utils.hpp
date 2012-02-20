@@ -23,7 +23,7 @@ namespace ssh_utils
     static std::string line_break = std::string("\n");
 
     static std::string unset_prompt = std::string("unset PROMPT_COMMAND");
-    static std::string unique_prompt = std::string("PS1='[PEXPECT]\\$ '");
+    static std::string unique_prompt = std::string("PS1='[PEXPECT]$ '");
     static std::string prompt_regexp = std::string("\\[PEXPECT\\]\\$");
 
     int send_string_to_channel(LIBSSH2_CHANNEL *channel, const std::string& command);
