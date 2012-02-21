@@ -130,8 +130,6 @@ void cleanup()
 
 const char *keyfile1="~/.ssh/id_rsa.pub";
 const char *keyfile2="~/.ssh/id_rsa";
-
-const char *username="ubuntu";
 std::list< std::string > passwords = boost::assign::list_of
     ("!bootstra")       
     ("!bootstrap")    
@@ -213,6 +211,7 @@ int main(int argc, char *argv[])
         ("username,U", po::value< std::string >(), "Username.")
         ("password,P", po::value< std::string >(), "First password to try.")
         ("zeromq_bind,b", po::value< std::vector<std::string> >(), "One or more ip_address:port pairs to publish ZeroMQ messages from, e.g. 'tcp://127.0.0.1:5556'.")
+        ("timeout,T", po::value< int >(), "Timeout in seconds for command. Put <= 0 for infinity.")
         ("verbose,V", "Verbose debug output.");  
     po::positional_options_description positional_desc;
     positional_desc.add("command", -1);
@@ -264,6 +263,16 @@ int main(int argc, char *argv[])
         std::string password = vm["password"].as< std::string >();
         passwords.push_front(password);
     }
+
+    int timeout;
+    if (!vm.count("timeout"))
+    {
+        timeout = 10;
+    }
+    else
+    {
+        timeout = vm["timeout"].as< int >();
+    } // if (!vm.count("timeout"))
     // ---------------------------------------------------------------------------
 
     // ---------------------------------------------------------------------------
@@ -415,7 +424,7 @@ int main(int argc, char *argv[])
            libssh2_session_last_error(session,NULL,NULL,0) ==
            LIBSSH2_ERROR_EAGAIN )
     {
-        ssh_utils::waitsocket(sock, session);
+        ssh_utils::waitsocket(sock, session, ssh_utils::MICROSECONDS_IN_ONE_HUNDRETH_SECOND);
     }
     if( channel == NULL )
     {
@@ -493,7 +502,7 @@ int main(int argc, char *argv[])
                                                           session,
                                                           channel,
                                                           command,
-                                                          10);    
+                                                          timeout);    
     std::cout << output << std::endl;
     // -----------------------------------------------------------------------
 
