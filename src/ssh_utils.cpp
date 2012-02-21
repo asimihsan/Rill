@@ -216,6 +216,9 @@ namespace ssh_utils
                 break;
             }
         } // outer for loop based on time and size
+
+EXIT_LABEL:
+
         free(buffer);    
         return output.str();
     }
