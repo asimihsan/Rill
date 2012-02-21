@@ -491,13 +491,16 @@ int main(int argc, char *argv[])
     {
         std::cout << "Problem syncing prompt." << std::endl;
     }
-    rc = ssh_utils::reset_prompt_to_pexpect_version(sock, session, channel);
+    rc = ssh_utils::reset_prompt_to_pexpect_version(sock,
+                                                    session,
+                                                    channel,
+                                                    base_delay);
     // -----------------------------------------------------------------------    
 
     // -----------------------------------------------------------------------
     //  You now have pexpect-type access. Send commands, get output, act
     //  on output, send more commands, etc.
-    // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------    
     output = ssh_utils::get_result_from_command_execution(sock,
                                                           session,
                                                           channel,
