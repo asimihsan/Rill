@@ -26,6 +26,9 @@ namespace ssh_utils
     static std::string unique_prompt = std::string("PS1='[PEXPECT]$ '");
     static std::string prompt_regexp = std::string("\\[PEXPECT\\]\\$");
 
+    static int MICROSECONDS_IN_ONE_HUNDRETH_SECOND = 10000;
+    static int MICROSECONDS_IN_ONE_SECOND = 1000000;
+
     int send_string_to_channel(LIBSSH2_CHANNEL *channel, const std::string& command);
     int send_line_break_to_channel(LIBSSH2_CHANNEL *channel);
     int send_command_to_channel(LIBSSH2_CHANNEL *channel, const std::string &contents);
@@ -40,7 +43,7 @@ namespace ssh_utils
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
                                   int size,
-                                  int timeout,
+                                  int timeout_seconds,
                                   bool is_executing_command,
                                   std::string *command);
     int read_once_from_channel(int sock,
@@ -55,7 +58,7 @@ namespace ssh_utils
                                                   std::string& command,
                                                   int timeout_seconds);
     int levenstein_distance(const std::string& source, const std::string& target);
-    int waitsocket(int socket_fd, LIBSSH2_SESSION *session);
+    int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec);
 }
 
 #endif

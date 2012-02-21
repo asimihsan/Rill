@@ -127,7 +127,7 @@ namespace ssh_utils
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
                                   int size,
-                                  int timeout,
+                                  int timeout_seconds,
                                   bool is_executing_command,
                                   std::string *command)
     {       
@@ -145,6 +145,8 @@ namespace ssh_utils
         bool parse_rc;
         std::string result;
         boost::regex regexp_object;
+        int timeout_microseconds = timeout_seconds * MICROSECONDS_IN_ONE_SECOND;
+        const int wait_duration = MICROSECONDS_IN_ONE_HUNDRETH_SECOND;
         // -------------------------------------------------------------------
 
         // -------------------------------------------------------------------
@@ -163,8 +165,8 @@ namespace ssh_utils
 
         char *buffer = (char *)malloc(size);
         for (time_elapsed = 0, byte_count = 0;
-             (time_elapsed < timeout) && (byte_count < size);
-             time_elapsed += 1)
+             (time_elapsed < timeout_microseconds) && (byte_count < size);
+             time_elapsed += wait_duration)
         {
             do
             {       
@@ -175,25 +177,24 @@ namespace ssh_utils
                                                  size,
                                                  output);
             }
-            while(read_rc > 0);
-            
+            while(read_rc > 0);            
             if (is_executing_command)
             {
                 parse_rc = parsing::parse_ssh_command_output(output.str(),
                                                              regexp_object,
-                                                             result);
+                                                             result);                
                 if (parse_rc == true)
                 {
                     free(buffer);
                     return result;
                 } // if (rc == true)
-            } // if (is_executing_command)
+            }
 
             /* this is due to blocking that would occur otherwise so we loop on
                this condition */ 
             if(read_rc == LIBSSH2_ERROR_EAGAIN)
             {            
-                waitsocket(sock, session);
+                waitsocket(sock, session, wait_duration);
             }
             else
             {
@@ -211,19 +212,21 @@ namespace ssh_utils
                                                   int timeout_seconds)
     {
         int rc;
+        bool is_executing_command = (timeout_seconds <= 0) ? false : true;
+        int size = 0;
         rc = send_command_to_channel(channel, command);
         std::string output = read_from_channel(sock,
                                                session,
                                                channel,
-                                               0,
+                                               size,
                                                timeout_seconds,
-                                               true,
+                                               is_executing_command,
                                                (&command));
         trim(output);
         return output;
     }
 
-    int waitsocket(int socket_fd, LIBSSH2_SESSION *session)
+    int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec)
     {
         struct timeval timeout_struct;
         int rc;
@@ -233,7 +236,7 @@ namespace ssh_utils
         int dir;
      
         timeout_struct.tv_sec = 0;
-        timeout_struct.tv_usec = 1000 * 100;
+        timeout_struct.tv_usec = timeout_usec;
      
         FD_ZERO(&fd);
      
