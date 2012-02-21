@@ -47,7 +47,7 @@ namespace ssh_utils
                           session,
                           channel,
                           size,
-                          1,
+                          MICROSECONDS_IN_ONE_SECOND / 10,
                           false,
                           NULL);
         
@@ -58,7 +58,7 @@ namespace ssh_utils
                               session,
                               channel,
                               size,
-                              1,
+                              MICROSECONDS_IN_ONE_SECOND / 10,
                               false,
                               NULL);
         trim(a);
@@ -69,7 +69,7 @@ namespace ssh_utils
                               session,
                               channel,
                               size,
-                              1,
+                              MICROSECONDS_IN_ONE_SECOND / 10,
                               false,
                               NULL);
         trim(b);
@@ -93,17 +93,32 @@ namespace ssh_utils
 
     int reset_prompt_to_pexpect_version(int sock,
                                         LIBSSH2_SESSION *session,
-                                        LIBSSH2_CHANNEL *channel)
-    {
+                                        LIBSSH2_CHANNEL *channel,
+                                        int estimated_delay)
+    {        
+        const int size = 0;
+
+        // -------------------------------------------------------------------
+        //  !!AI TADA, it's magic baby! :(. We need to establish the RTT
+        //  of the link, where RTT includes both network and processing
+        //  delay, and then munge it into an estimate of how long to
+        //  wait for resetting the bash prompt will take.
+        //
+        //  Is there a non-empirical way of doing this? We'll see. For now
+        //  make it chunky, and sit on it.
+        // -------------------------------------------------------------------
+        const int timeout_usecs = estimated_delay * 50000;  
+        // -------------------------------------------------------------------
+
         send_command_to_channel(channel, unset_prompt);
-        send_command_to_channel(channel, unique_prompt);
+        send_command_to_channel(channel, unique_prompt);        
         std::string output = read_from_channel(sock,
                                                session,
                                                channel,
-                                               -1,
-                                               5,
+                                               size,
+                                               timeout_usecs,
                                                false,
-                                               NULL);        
+                                               NULL);                
         return true;
     }
 
@@ -128,7 +143,7 @@ namespace ssh_utils
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
                                   int size,
-                                  int timeout_seconds,
+                                  int timeout_usecs,
                                   bool is_executing_command,
                                   std::string *command)
     {       
@@ -145,8 +160,7 @@ namespace ssh_utils
         int read_rc;
         bool parse_rc;
         std::string result;
-        boost::regex regexp_object;
-        int timeout_microseconds = timeout_seconds * MICROSECONDS_IN_ONE_SECOND;
+        boost::regex regexp_object;        
         const int wait_duration = MICROSECONDS_IN_ONE_HUNDRETH_SECOND;
         // -------------------------------------------------------------------
 
@@ -166,7 +180,7 @@ namespace ssh_utils
 
         char *buffer = (char *)malloc(size);
         for (time_elapsed = 0, byte_count = 0;
-             (time_elapsed < timeout_microseconds) && (byte_count < size);
+             (time_elapsed < timeout_usecs) && (byte_count < size);
              time_elapsed += wait_duration)
         {
             do
@@ -220,7 +234,7 @@ namespace ssh_utils
                                                session,
                                                channel,
                                                size,
-                                               timeout_seconds,
+                                               timeout_seconds * MICROSECONDS_IN_ONE_SECOND,
                                                is_executing_command,
                                                (&command));
         trim(output);

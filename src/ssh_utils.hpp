@@ -38,7 +38,8 @@ namespace ssh_utils
                              int base_delay);
     int reset_prompt_to_pexpect_version(int sock,
                                         LIBSSH2_SESSION *session,
-                                        LIBSSH2_CHANNEL *channel);
+                                        LIBSSH2_CHANNEL *channel,
+                                        int estimated_delay);
     std::string read_from_channel(int sock,
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
