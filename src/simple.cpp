@@ -28,6 +28,8 @@
 #include <boost/exception/all.hpp> 
 namespace po = boost::program_options;
 #include <boost/assign/list_of.hpp>
+#include <boost/algorithm/string.hpp>
+using namespace boost::algorithm;
 
 #ifdef WIN32
 #define LIBSSH2_API __declspec(dllexport)
@@ -57,6 +59,7 @@ namespace po = boost::program_options;
 
 #include "ssh_utils.hpp"
 #include "parsing.hpp"       
+#include "dns_utils.hpp"
 
 LIBSSH2_SESSION *session;
 LIBSSH2_CHANNEL *channel;
@@ -229,6 +232,7 @@ int main(int argc, char *argv[])
     else
     {
         host = vm["host"].as< std::string >();        
+        trim(host);
     } // if (!vm.count("host"))
 
     std::string command;
@@ -241,6 +245,7 @@ int main(int argc, char *argv[])
     else
     {
         command = vm["command"].as< std::string >();
+        trim(command);
     } // if (!vm.count("command"))
 
     std::string username;
@@ -251,6 +256,7 @@ int main(int argc, char *argv[])
     else
     {
         username = vm["username"].as< std::string >();
+        trim(username);
     } // if (!vm.count("username"))
 
     if (vm.count("password"))
@@ -258,6 +264,26 @@ int main(int argc, char *argv[])
         std::string password = vm["password"].as< std::string >();
         passwords.push_front(password);
     }
+    // ---------------------------------------------------------------------------
+
+    // ---------------------------------------------------------------------------
+    //  We must have a host input. At this point it could either be an IP
+    //  address, which we'll just use, or it could be a DNS hostname, which
+    //  could resolve to one or more IP addresses. In the latter case
+    //  assume the first IP address is good to go.
+    // ---------------------------------------------------------------------------
+    std::vector< std::string > ip_addresses;
+    if (!dns_utils::is_string_an_ipv4_address(host))
+    {
+        bool rc = dns_utils::resolve_hostname_to_ipv4(host,
+                                                      ip_addresses);
+        if (!rc)
+        {
+            std::cout << "Input host '" << host << "' not an IPv4 address, but can't be resolved using DNS." << std::endl;
+            exit(1);
+        } // if (!rc)
+        host = ip_addresses[0];
+    }    
     // ---------------------------------------------------------------------------
 
     rc = libssh2_init(0);
