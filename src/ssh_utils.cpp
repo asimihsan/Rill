@@ -113,11 +113,12 @@ namespace ssh_utils
                                char *buffer,
                                int buffer_size,
                                std::stringstream &output)
-    {            
-        memset(buffer, '\0', buffer_size);
+    {   
         int rc = libssh2_channel_read(channel, buffer, buffer_size);
         if (rc > 0)
         {            
+            int last_byte = (rc > (buffer_size - 1)) ? (buffer_size - 1) : rc;
+            buffer[last_byte] = '\0';
             output << buffer;                
         }
         return rc;
