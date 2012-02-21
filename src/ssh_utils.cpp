@@ -144,6 +144,7 @@ namespace ssh_utils
         int read_rc;
         bool parse_rc;
         std::string result;
+        boost::regex regexp_object;
         // -------------------------------------------------------------------
 
         // -------------------------------------------------------------------
@@ -152,6 +153,13 @@ namespace ssh_utils
         assert((!is_executing_command) ||
                (is_executing_command && (command != NULL)));
         // -------------------------------------------------------------------
+
+        if (is_executing_command)
+        {
+            bool rc = parsing::build_ssh_expect_regular_expression((*command),
+                                                                   prompt_regexp,
+                                                                   regexp_object);
+        }
 
         char *buffer = (char *)malloc(size);
         for (time_elapsed = 0, byte_count = 0;
@@ -172,8 +180,7 @@ namespace ssh_utils
             if (is_executing_command)
             {
                 parse_rc = parsing::parse_ssh_command_output(output.str(),
-                                                             (*command),
-                                                             prompt_regexp,
+                                                             regexp_object,
                                                              result);
                 if (parse_rc == true)
                 {

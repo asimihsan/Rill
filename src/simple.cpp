@@ -271,10 +271,10 @@ int main(int argc, char *argv[])
     //  address, which we'll just use, or it could be a DNS hostname, which
     //  could resolve to one or more IP addresses. In the latter case
     //  assume the first IP address is good to go.
-    // ---------------------------------------------------------------------------
-    std::vector< std::string > ip_addresses;
+    // ---------------------------------------------------------------------------    
     if (!dns_utils::is_string_an_ipv4_address(host))
     {
+        std::vector< std::string > ip_addresses;
         bool rc = dns_utils::resolve_hostname_to_ipv4(host,
                                                       ip_addresses);
         if (!rc)
