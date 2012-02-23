@@ -244,14 +244,14 @@ def main():
     zeromq_directory = os.path.abspath(zeromq_directory[0])
     assert(os.path.isdir(zeromq_directory))
 
-    re2_directory = glob(os.path.join(lib_directory, "re2*"))
-    assert(len(re2_directory) == 1)
-    re2_directory = os.path.abspath(re2_directory[0])
-    assert(os.path.isdir(re2_directory))
+    #re2_directory = glob(os.path.join(lib_directory, "re2*"))
+    #assert(len(re2_directory) == 1)
+    #re2_directory = os.path.abspath(re2_directory[0])
+    #assert(os.path.isdir(re2_directory))
     # ----------------------------------------------------------------------
 
-    build_zlib(zlib_directory, deps_directory)
-    build_openssl(openssl_directory, deps_directory)
+    #build_zlib(zlib_directory, deps_directory)
+    #build_openssl(openssl_directory, deps_directory)
     build_libssh2(libssh2_directory, deps_directory)
     build_yaml(yaml_directory, deps_directory)
     build_zeromq(zeromq_directory, deps_directory)

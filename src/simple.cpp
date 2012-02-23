@@ -506,7 +506,6 @@ int main(int argc, char *argv[])
                                                           channel,
                                                           command,
                                                           timeout);    
-    std::cout << output << std::endl;
     // -----------------------------------------------------------------------
 
   skip_shell:
