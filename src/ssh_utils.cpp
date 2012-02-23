@@ -154,31 +154,51 @@ namespace ssh_utils
         {
             size = 0x4000;
         }
-        std::stringstream output;
+        std::stringstream output_all;
+		std::stringstream output_incremental;
+
         int time_elapsed;
         int byte_count;
         int read_rc;
-        bool parse_rc;
-        std::string result;
-        boost::regex regexp_object;        
         const int wait_duration = MICROSECONDS_IN_ONE_HUNDRETH_SECOND;
+
+		bool parse_rc;			
+        std::string result;
+        boost::regex command_regexp_object;
+		boost::regex prompt_regexp_object;
+		bool have_found_command = false;
+		bool have_found_prompt = false;
         // -------------------------------------------------------------------
 
         // -------------------------------------------------------------------
         //  Validate inputs.
         // -------------------------------------------------------------------
-        assert((!is_executing_command) ||
-               (is_executing_command && (command != NULL)));
+		assert((!is_executing_command) ||
+			   ((is_executing_command) && (command != NULL)));
         // -------------------------------------------------------------------
 
-        if (is_executing_command)
-        {
-            bool rc = parsing::build_ssh_expect_regular_expression((*command),
-                                                                   prompt_regexp,
-                                                                   regexp_object);
-        }
-
+		if (is_executing_command)
+		{
+			std::string escaped_command = parsing::regex_escape((*command));
+			parsing::build_command_ssh_expect_regular_expression(escaped_command,
+																 command_regexp_object);
+			parsing::build_prompt_ssh_expect_regular_expression(prompt_regexp,
+																prompt_regexp_object);
+		}
         char *buffer = (char *)malloc(size);
+		/*
+		while (1)
+		{
+			// ------------------------------------------------------------------------
+			//	Only apply timeout constraints if we've requested a timeout.
+			// ------------------------------------------------------------------------
+			if (timeout_usecs > 0)
+			{
+			}
+			// ------------------------------------------------------------------------
+		}
+		*/
+
         for (time_elapsed = 0, byte_count = 0;
              (time_elapsed < timeout_usecs) && (byte_count < size);
              time_elapsed += wait_duration)
@@ -190,20 +210,62 @@ namespace ssh_utils
                                                  channel,
                                                  buffer,
                                                  size,
-                                                 output);
+                                                 output_incremental);
             }
             while(read_rc > 0);            
-            if (is_executing_command)
-            {
-                parse_rc = parsing::parse_ssh_command_output(output.str(),
-                                                             regexp_object,
-                                                             result);                
-                if (parse_rc == true)
-                {
-                    free(buffer);
-                    return result;
-                } // if (rc == true)
-            }
+
+			if (is_executing_command)
+			{
+				// -----------------------------------------------------------
+				//	We always expect to see the command at the start of the
+				//	channel's output. If we haven't found it yet then look for it
+				//	and once we find it reset the output stream to exclude
+				//	the command.
+				// -----------------------------------------------------------
+				if (!have_found_command)
+				{
+					parse_rc = parsing::parse_ssh_command_output(output_incremental.str(),
+																 command_regexp_object,
+																 result);       
+					if (parse_rc == true)
+					{
+						//std::cout << "found command!" << std::endl;
+						//std::cout << "output before: \n" << output.str() << std::endl;
+						//std::cout << "result: \n" << result << std::endl;
+						output_incremental.str(result);
+						//std::cout << "output after: \n" << output.str() << std::endl;
+						have_found_command = true;
+					} // if (parse_rc == true)
+				} // if (!have_found_command)
+				// -----------------------------------------------------------
+
+				// -----------------------------------------------------------
+				//	If we haven't found the prompt yet look for it as well. If
+				//	we find it and we're executing a command this tells us
+				//	that the command is finished.
+				// -----------------------------------------------------------
+				if (!have_found_prompt)
+				{
+					parse_rc = parsing::parse_ssh_command_output(output_incremental.str(),
+																 prompt_regexp_object,
+																 result);
+					if (parse_rc == true)
+					{
+						free(buffer);
+						output_all << result;
+						return output_all.str();
+					} // if (parse_rc == true)
+				} // if (!have_found_prompt)
+				// -----------------------------------------------------------
+			} // if (is_executing_command)
+
+			std::string output_incremental_as_string = output_incremental.str();
+			output_all << output_incremental_as_string;
+			if (is_executing_command)
+			{
+				std::cout << output_incremental_as_string; 
+			}			
+			output_incremental.str(std::string());			
 
             /* this is due to blocking that would occur otherwise so we loop on
                this condition */ 
@@ -220,7 +282,7 @@ namespace ssh_utils
 EXIT_LABEL:
 
         free(buffer);    
-        return output.str();
+        return output_all.str();
     }
 
     std::string get_result_from_command_execution(int sock,
@@ -229,9 +291,9 @@ EXIT_LABEL:
                                                   std::string& command,
                                                   int timeout_seconds)
     {
+		const bool is_executing_command = true;
+        const int size = 0;
         int rc;
-        bool is_executing_command = (timeout_seconds <= 0) ? false : true;
-        int size = 0;
         rc = send_command_to_channel(channel, command);
         std::string output = read_from_channel(sock,
                                                session,
