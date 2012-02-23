@@ -171,6 +171,9 @@ int main(int argc, char *argv[])
     int bytecount = 0;
     std::string output;
 
+	const int read_buffer_size = 0x4000;
+	char read_buffer[read_buffer_size];
+
 #ifdef WIN32
     WSADATA wsadata;
 
@@ -480,7 +483,9 @@ int main(int argc, char *argv[])
         rc = ssh_utils::sync_original_prompt(sock,
                                              session,
                                              channel,
-                                             base_delay);
+                                             base_delay,
+											 read_buffer,
+											 read_buffer_size);
         if (!rc)
         {
             is_prompt_synced = true;
@@ -494,7 +499,9 @@ int main(int argc, char *argv[])
     rc = ssh_utils::reset_prompt_to_pexpect_version(sock,
                                                     session,
                                                     channel,
-                                                    base_delay);
+                                                    base_delay,
+													read_buffer,
+													read_buffer_size);
     // -----------------------------------------------------------------------    
 
     // -----------------------------------------------------------------------
@@ -505,7 +512,9 @@ int main(int argc, char *argv[])
                                                           session,
                                                           channel,
                                                           command,
-                                                          timeout);    
+                                                          timeout,
+														  read_buffer,
+														  read_buffer_size);    
     // -----------------------------------------------------------------------
 
   skip_shell:

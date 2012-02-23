@@ -35,17 +35,23 @@ namespace ssh_utils
     int sync_original_prompt(int sock,
                              LIBSSH2_SESSION *session,
                              LIBSSH2_CHANNEL *channel,
-                             int base_delay);
+                             int base_delay,
+							 char *read_buffer,
+							 int read_buffer_size);
     int reset_prompt_to_pexpect_version(int sock,
                                         LIBSSH2_SESSION *session,
                                         LIBSSH2_CHANNEL *channel,
-                                        int estimated_delay);
+                                        int estimated_delay,
+										char *read_buffer,
+										int read_buffer_size);
     std::string read_from_channel(int sock,
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
-                                  int timeout_seconds,
+                                  int timeout_usecs,
                                   bool is_executing_command,
-                                  std::string *command);
+                                  std::string *command,
+								  char *read_buffer,
+								  int read_buffer_size);
     int read_once_from_channel(int sock,
                                LIBSSH2_SESSION *session,
                                LIBSSH2_CHANNEL *channel,
@@ -56,7 +62,9 @@ namespace ssh_utils
                                                   LIBSSH2_SESSION *session,
                                                   LIBSSH2_CHANNEL *channel,                                                  
                                                   std::string& command,
-                                                  int timeout_seconds);
+                                                  int timeout_seconds,
+												  char *read_buffer,
+												  int read_buffer_size);
     int levenstein_distance(const std::string& source, const std::string& target);
     int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec);
 }
