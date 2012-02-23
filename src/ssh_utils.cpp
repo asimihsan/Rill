@@ -51,7 +51,8 @@ namespace ssh_utils
                           false,
                           NULL,
 						  read_buffer,
-						  read_buffer_size);
+						  read_buffer_size,
+                          false);
         
         sleep(small_delay);
         send_line_break_to_channel(channel);        
@@ -63,7 +64,8 @@ namespace ssh_utils
                               false,
                               NULL,
 							  read_buffer,
-							  read_buffer_size);
+							  read_buffer_size,
+                              true);
         trim(a);
         sleep(small_delay);
         send_line_break_to_channel(channel);
@@ -75,14 +77,15 @@ namespace ssh_utils
                               false,
                               NULL,
 							  read_buffer,
-							  read_buffer_size);
+							  read_buffer_size,
+                              true);
         trim(b);
         int ld = levenstein_distance(a, b);
         int len_a = a.length();
         int len_b = b.length();
-        //std::cout << "a: " << a << std::endl;
-        //std::cout << "b: " << b << std::endl;
-        //std::cout << "ld: " << ld << ", len_a: " << len_a << std::endl;
+        std::cout << "a: " << a << std::endl;
+        std::cout << "b: " << b << std::endl;
+        std::cout << "ld: " << ld << ", len_a: " << len_a << std::endl;
         if ((len_a == 0) || (len_b == 0))
         {
             rc = 1;
@@ -91,7 +94,7 @@ namespace ssh_utils
         {
             rc = 1;
         }
-        //std::cout << "lev rc: " << rc << std::endl;
+        std::cout << "lev rc: " << rc << std::endl;
         return rc;
     }
 
@@ -116,14 +119,15 @@ namespace ssh_utils
 
         send_command_to_channel(channel, unset_prompt);
         send_command_to_channel(channel, unique_prompt);        
-        std::string output = read_from_channel(sock,
-                                               session,
-                                               channel,
-                                               timeout_usecs,
-                                               false,
-                                               NULL,
-											   read_buffer,
-											   read_buffer_size);
+        read_from_channel(sock,
+                          session,
+                          channel,
+                          timeout_usecs,
+                          false,
+                          NULL,
+						  read_buffer,
+						  read_buffer_size,
+                          false);
         return true;
     }
 
@@ -151,7 +155,8 @@ namespace ssh_utils
                                   bool is_executing_command,
                                   std::string *command,
 								  char *read_buffer,
-								  int read_buffer_size)
+								  int read_buffer_size,
+                                  bool capture_output)
     {   
 		// -------------------------------------------------------------------
 		//	Validate inputs.
@@ -159,7 +164,7 @@ namespace ssh_utils
 		assert(session != NULL);
 		assert(channel != NULL);
 		assert(read_buffer != NULL);
-		// -------------------------------------------------------------------
+		// -------------------------------------------------------------------        
 
         // -------------------------------------------------------------------
         //  Initialize local variables.
@@ -217,7 +222,7 @@ namespace ssh_utils
                                                  read_buffer_size,
                                                  output_incremental);
             }
-            while(read_rc > 0);            
+            while(read_rc > 0);                        
 
 			if (is_executing_command)
 			{
@@ -235,10 +240,10 @@ namespace ssh_utils
 					if (parse_rc == true)
 					{
 						//std::cout << "found command!" << std::endl;
-						//std::cout << "output before: \n" << output.str() << std::endl;
+						//std::cout << "output before: \n" << output_incremental.str() << std::endl;
 						//std::cout << "result: \n" << result << std::endl;
 						output_incremental.str(result);
-						//std::cout << "output after: \n" << output.str() << std::endl;
+						//std::cout << "output after: \n" << output_incremental.str() << std::endl;
 						have_found_command = true;
 					} // if (parse_rc == true)
 				} // if (!have_found_command)
@@ -256,6 +261,10 @@ namespace ssh_utils
 																 result);
 					if (parse_rc == true)
 					{						
+                        if (is_executing_command)
+                        {
+                            std::cout << result;
+                        }
 						output_all << result;
 						return output_all.str();
 					} // if (parse_rc == true)
@@ -263,11 +272,14 @@ namespace ssh_utils
 				// -----------------------------------------------------------
 			} // if (is_executing_command)
 
-			std::string output_incremental_as_string = output_incremental.str();
-			output_all << output_incremental_as_string;
+			std::string output_incremental_as_string = output_incremental.str();            
+            if (capture_output)
+            {
+                output_all << output_incremental_as_string;
+            }			
 			if (is_executing_command)
 			{
-				std::cout << output_incremental_as_string; 
+                std::cout << output_incremental_as_string; 
 			}			
 			output_incremental.str(std::string());			
 
@@ -303,9 +315,32 @@ namespace ssh_utils
                                                is_executing_command,
                                                (&command),
 											   read_buffer,
-											   read_buffer_size);
+											   read_buffer_size,
+                                               true);
         trim(output);
         return output;
+    }
+
+    void command_execution_without_result(int sock,
+                                          LIBSSH2_SESSION *session,
+                                          LIBSSH2_CHANNEL *channel,                                                  
+                                          std::string& command,
+                                          int timeout_seconds,
+										  char *read_buffer,
+										  int read_buffer_size)
+    {
+		const bool is_executing_command = true;        
+        int rc;
+        rc = send_command_to_channel(channel, command);
+        read_from_channel(sock,
+                          session,
+                          channel,
+                          timeout_seconds * MICROSECONDS_IN_ONE_SECOND,
+                          is_executing_command,
+                          (&command),
+						  read_buffer,
+						  read_buffer_size,
+                          false);
     }
 
     int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec)

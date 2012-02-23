@@ -479,7 +479,7 @@ int main(int argc, char *argv[])
          cnt < 10;
          base_delay *= 2)
     {
-        //std::cout << "base_delay: " << base_delay << std::endl;
+        std::cout << "base_delay: " << base_delay << std::endl;
         rc = ssh_utils::sync_original_prompt(sock,
                                              session,
                                              channel,
@@ -508,13 +508,13 @@ int main(int argc, char *argv[])
     //  You now have pexpect-type access. Send commands, get output, act
     //  on output, send more commands, etc.
     // -----------------------------------------------------------------------    
-    output = ssh_utils::get_result_from_command_execution(sock,
-                                                          session,
-                                                          channel,
-                                                          command,
-                                                          timeout,
-														  read_buffer,
-														  read_buffer_size);    
+    ssh_utils::command_execution_without_result(sock,
+                                                session,
+                                                channel,
+                                                command,
+                                                timeout,
+											    read_buffer,
+												read_buffer_size);    
     // -----------------------------------------------------------------------
 
   skip_shell:

@@ -22,6 +22,7 @@ namespace parsing
 
         regexp_ss << "^[[:space:]]*";
         regexp_ss << command;
+        regexp_ss << "[[:space:]]*";
         regexp_ss << "(.*)";
         //std::cout << "regexp string: " << regexp_ss.str() << std::endl;
         boost::regex local_regexp_object(regexp_ss.str());
@@ -36,7 +37,8 @@ namespace parsing
     {
         std::stringstream regexp_ss;
 
-        regexp_ss << "(.*)";
+        regexp_ss << "^(.*)";
+        regexp_ss << "[[:space:]]*";
         regexp_ss << prompt;
         regexp_ss << "[[:space:]]*$";   
         //std::cout << "regexp string: " << regexp_ss.str() << std::endl;
