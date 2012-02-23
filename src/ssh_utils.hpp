@@ -16,7 +16,10 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <zmq.hpp>
+
 #include "parsing.hpp"
+#include "json_utils.hpp"
 
 namespace ssh_utils
 {
@@ -52,7 +55,9 @@ namespace ssh_utils
                                   std::string *command,
 								  char *read_buffer,
 								  int read_buffer_size,
-                                  bool capture_output);
+                                  bool capture_output,
+                                  bool is_zeromq_bind_present,
+                                  const std::string& zeromq_bind);
     int read_once_from_channel(int sock,
                                LIBSSH2_SESSION *session,
                                LIBSSH2_CHANNEL *channel,
@@ -65,14 +70,18 @@ namespace ssh_utils
                                                   std::string& command,
                                                   int timeout_seconds,
 												  char *read_buffer,
-												  int read_buffer_size);
+												  int read_buffer_size,
+                                                  bool is_zeromq_bind_present,
+                                                  const std::string& zeromq_bind);
     void command_execution_without_result(int sock,
                                           LIBSSH2_SESSION *session,
                                           LIBSSH2_CHANNEL *channel,                                                  
                                           std::string& command,
                                           int timeout_seconds,
 										  char *read_buffer,
-										  int read_buffer_size);
+										  int read_buffer_size,
+                                          bool is_zeromq_bind_present,
+                                          const std::string& zeromq_bind);
     int levenstein_distance(const std::string& source, const std::string& target);
     int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec);
 }

@@ -41,8 +41,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;$(BOOST_HOME)&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS"
+				AdditionalIncludeDirectories="&quot;..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;$(BOOST_HOME)&quot;"
+				PreprocessorDefinitions="WIN32;_DEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib yaml.lib libzmq.lib "
+				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib rpcrt4.lib yaml.lib libzmq.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\..\dep;&quot;$(BOOST_LIB)&quot;"
 				GenerateDebugInformation="true"
@@ -87,6 +87,7 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+				PageHeapConserveMemory="false"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -121,8 +122,8 @@
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
-				AdditionalIncludeDirectories="&quot;..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;$(BOOST_HOME)&quot;"
-				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS"
+				AdditionalIncludeDirectories="&quot;..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;$(BOOST_HOME)&quot;"
+				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC"
 				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -142,7 +143,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib yaml.lib libzmq.lib "
+				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib rpcrt4.lib yaml.lib libzmq.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\..\dep;&quot;$(BOOST_LIB)&quot;"
 				GenerateDebugInformation="true"
@@ -188,6 +189,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\..\src\json_utils.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\..\src\parsing.cpp"
 				>
 			</File>
@@ -210,6 +215,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\..\src\json_utils.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\..\src\parsing.hpp"
 				>
 			</File>
@@ -223,6 +232,14 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+		</Filter>
+		<Filter
+			Name="jsoncpp"
+			>
+			<File
+				RelativePath="..\..\..\..\lib\jsoncpp-0.6.0-rc2\jsoncpp.cpp"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>
