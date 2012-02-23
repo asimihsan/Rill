@@ -43,7 +43,6 @@ namespace ssh_utils
     std::string read_from_channel(int sock,
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
-                                  int size,
                                   int timeout_seconds,
                                   bool is_executing_command,
                                   std::string *command);

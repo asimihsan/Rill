@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
     int timeout;
     if (!vm.count("timeout"))
     {
-        timeout = 10;
+        timeout = 0;
     }
     else
     {

@@ -37,8 +37,7 @@ namespace ssh_utils
         int rc = 0;        
         const int small_delay = base_delay;
         const int medium_delay = 5 * small_delay;
-        const int large_delay = 10 * small_delay;
-        const int size = 10000;
+        const int large_delay = 10 * small_delay;        
 
         std::string a, b;
 
@@ -46,7 +45,6 @@ namespace ssh_utils
         read_from_channel(sock,
                           session,
                           channel,
-                          size,
                           MICROSECONDS_IN_ONE_SECOND / 10,
                           false,
                           NULL);
@@ -57,7 +55,6 @@ namespace ssh_utils
         a = read_from_channel(sock,
                               session,
                               channel,
-                              size,
                               MICROSECONDS_IN_ONE_SECOND / 10,
                               false,
                               NULL);
@@ -68,7 +65,6 @@ namespace ssh_utils
         b = read_from_channel(sock,
                               session,
                               channel,
-                              size,
                               MICROSECONDS_IN_ONE_SECOND / 10,
                               false,
                               NULL);
@@ -96,8 +92,6 @@ namespace ssh_utils
                                         LIBSSH2_CHANNEL *channel,
                                         int estimated_delay)
     {        
-        const int size = 0;
-
         // -------------------------------------------------------------------
         //  !!AI TADA, it's magic baby! :(. We need to establish the RTT
         //  of the link, where RTT includes both network and processing
@@ -115,7 +109,6 @@ namespace ssh_utils
         std::string output = read_from_channel(sock,
                                                session,
                                                channel,
-                                               size,
                                                timeout_usecs,
                                                false,
                                                NULL);                
@@ -142,7 +135,6 @@ namespace ssh_utils
     std::string read_from_channel(int sock,
                                   LIBSSH2_SESSION *session,
                                   LIBSSH2_CHANNEL *channel,
-                                  int size,
                                   int timeout_usecs,
                                   bool is_executing_command,
                                   std::string *command)
@@ -150,17 +142,14 @@ namespace ssh_utils
         // -------------------------------------------------------------------
         //  Initialize local variables.
         // -------------------------------------------------------------------
-        if (size <= 0)
-        {
-            size = 0x4000;
-        }
+		const int buffer_size = 0x4000;
+
         std::stringstream output_all;
 		std::stringstream output_incremental;
 
-        int time_elapsed;
-        int byte_count;
+        long long time_elapsed;        
         int read_rc;
-        const int wait_duration = MICROSECONDS_IN_ONE_HUNDRETH_SECOND;
+        const long long wait_duration = MICROSECONDS_IN_ONE_HUNDRETH_SECOND;
 
 		bool parse_rc;			
         std::string result;
@@ -185,31 +174,29 @@ namespace ssh_utils
 			parsing::build_prompt_ssh_expect_regular_expression(prompt_regexp,
 																prompt_regexp_object);
 		}
-        char *buffer = (char *)malloc(size);
-		/*
-		while (1)
-		{
+        char *buffer = (char *)malloc(buffer_size);		
+
+        for (time_elapsed = 0;
+             ;
+             time_elapsed += wait_duration)
+        {
+
 			// ------------------------------------------------------------------------
 			//	Only apply timeout constraints if we've requested a timeout.
 			// ------------------------------------------------------------------------
-			if (timeout_usecs > 0)
+			if ((timeout_usecs > 0) && (time_elapsed >= (long long)timeout_usecs))
 			{
+				break;
 			}
 			// ------------------------------------------------------------------------
-		}
-		*/
 
-        for (time_elapsed = 0, byte_count = 0;
-             (time_elapsed < timeout_usecs) && (byte_count < size);
-             time_elapsed += wait_duration)
-        {
             do
             {       
                 read_rc = read_once_from_channel(sock,
                                                  session,
                                                  channel,
                                                  buffer,
-                                                 size,
+                                                 buffer_size,
                                                  output_incremental);
             }
             while(read_rc > 0);            
@@ -279,8 +266,6 @@ namespace ssh_utils
             }
         } // outer for loop based on time and size
 
-EXIT_LABEL:
-
         free(buffer);    
         return output_all.str();
     }
@@ -291,14 +276,12 @@ EXIT_LABEL:
                                                   std::string& command,
                                                   int timeout_seconds)
     {
-		const bool is_executing_command = true;
-        const int size = 0;
+		const bool is_executing_command = true;        
         int rc;
         rc = send_command_to_channel(channel, command);
         std::string output = read_from_channel(sock,
                                                session,
                                                channel,
-                                               size,
                                                timeout_seconds * MICROSECONDS_IN_ONE_SECOND,
                                                is_executing_command,
                                                (&command));
