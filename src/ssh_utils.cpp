@@ -43,7 +43,7 @@ namespace ssh_utils
 
         std::string a, b;
 
-        // Clear out the cache before getting the prompt;
+        // Clear out the cache before getting the prompt;        
         read_from_channel(sock,
                           session,
                           channel,
@@ -52,7 +52,9 @@ namespace ssh_utils
                           NULL,
 						  read_buffer,
 						  read_buffer_size,
-                          false);
+                          false,
+                          false,
+                          std::string());
         
         sleep(small_delay);
         send_line_break_to_channel(channel);        
@@ -65,7 +67,9 @@ namespace ssh_utils
                               NULL,
 							  read_buffer,
 							  read_buffer_size,
-                              true);
+                              true,
+                              false,
+                              std::string());
         trim(a);
         sleep(small_delay);
         send_line_break_to_channel(channel);
@@ -78,7 +82,9 @@ namespace ssh_utils
                               NULL,
 							  read_buffer,
 							  read_buffer_size,
-                              true);
+                              true,
+                              false,
+                              std::string());
         trim(b);
         int ld = levenstein_distance(a, b);
         int len_a = a.length();
@@ -127,7 +133,9 @@ namespace ssh_utils
                           NULL,
 						  read_buffer,
 						  read_buffer_size,
-                          false);
+                          false,
+                          false,
+                          std::string());
         return true;
     }
 
@@ -156,14 +164,16 @@ namespace ssh_utils
                                   std::string *command,
 								  char *read_buffer,
 								  int read_buffer_size,
-                                  bool capture_output)
+                                  bool capture_output,
+                                  bool is_zeromq_bind_present,
+                                  const std::string& zeromq_bind)
     {   
 		// -------------------------------------------------------------------
 		//	Validate inputs.
 		// -------------------------------------------------------------------
 		assert(session != NULL);
 		assert(channel != NULL);
-		assert(read_buffer != NULL);
+		assert(read_buffer != NULL);        
 		// -------------------------------------------------------------------        
 
         // -------------------------------------------------------------------
@@ -171,6 +181,7 @@ namespace ssh_utils
         // -------------------------------------------------------------------
         std::stringstream output_all;
 		std::stringstream output_incremental;
+        std::string output_incremental_string;
 
         long long time_elapsed;        
         int read_rc;
@@ -182,6 +193,9 @@ namespace ssh_utils
 		boost::regex prompt_regexp_object;
 		bool have_found_command = false;
 		bool have_found_prompt = false;
+
+        zmq::context_t context(1);
+        zmq::socket_t publisher(context, ZMQ_PUB);
         // -------------------------------------------------------------------
 
         // -------------------------------------------------------------------
@@ -189,6 +203,15 @@ namespace ssh_utils
         // -------------------------------------------------------------------
 		assert((!is_executing_command) ||
 			   ((is_executing_command) && (command != NULL)));
+        // -------------------------------------------------------------------
+
+        // -------------------------------------------------------------------
+        //  Set up the ZeroMQ PUBLISH bind, if requested.
+        // -------------------------------------------------------------------
+        if (is_zeromq_bind_present)
+        {
+            publisher.bind(zeromq_bind.c_str());
+        }
         // -------------------------------------------------------------------
 
 		if (is_executing_command)
@@ -222,7 +245,8 @@ namespace ssh_utils
                                                  read_buffer_size,
                                                  output_incremental);
             }
-            while(read_rc > 0);                        
+            while(read_rc > 0);
+            output_incremental_string = output_incremental.str();
 
 			if (is_executing_command)
 			{
@@ -234,7 +258,7 @@ namespace ssh_utils
 				// -----------------------------------------------------------
 				if (!have_found_command)
 				{
-					parse_rc = parsing::parse_ssh_command_output(output_incremental.str(),
+					parse_rc = parsing::parse_ssh_command_output(output_incremental_string,
 																 command_regexp_object,
 																 result);       
 					if (parse_rc == true)
@@ -243,6 +267,7 @@ namespace ssh_utils
 						//std::cout << "output before: \n" << output_incremental.str() << std::endl;
 						//std::cout << "result: \n" << result << std::endl;
 						output_incremental.str(result);
+                        output_incremental_string = output_incremental.str();
 						//std::cout << "output after: \n" << output_incremental.str() << std::endl;
 						have_found_command = true;
 					} // if (parse_rc == true)
@@ -256,7 +281,7 @@ namespace ssh_utils
 				// -----------------------------------------------------------
 				if (!have_found_prompt)
 				{
-					parse_rc = parsing::parse_ssh_command_output(output_incremental.str(),
+					parse_rc = parsing::parse_ssh_command_output(output_incremental_string,
 																 prompt_regexp_object,
 																 result);
 					if (parse_rc == true)
@@ -271,16 +296,20 @@ namespace ssh_utils
 				} // if (!have_found_prompt)
 				// -----------------------------------------------------------
 			} // if (is_executing_command)
-
-			std::string output_incremental_as_string = output_incremental.str();            
+			
             if (capture_output)
             {
-                output_all << output_incremental_as_string;
+                output_all << output_incremental_string;
             }			
 			if (is_executing_command)
 			{
-                std::cout << output_incremental_as_string; 
+                std::cout << output_incremental_string; 
 			}			
+            if (is_zeromq_bind_present)
+            {
+                Json::Value root;
+                root["line"] = output_incremental_string;
+            }
 			output_incremental.str(std::string());			
 
             /* this is due to blocking that would occur otherwise so we loop on
@@ -303,7 +332,9 @@ namespace ssh_utils
                                                   std::string& command,
                                                   int timeout_seconds,
 												  char *read_buffer,
-												  int read_buffer_size)
+												  int read_buffer_size,
+                                                  bool is_zeromq_bind_present,
+                                                  const std::string& zeromq_bind)
     {
 		const bool is_executing_command = true;        
         int rc;
@@ -316,7 +347,9 @@ namespace ssh_utils
                                                (&command),
 											   read_buffer,
 											   read_buffer_size,
-                                               true);
+                                               true,                                               
+                                               is_zeromq_bind_present,
+                                               zeromq_bind);
         trim(output);
         return output;
     }
@@ -327,7 +360,9 @@ namespace ssh_utils
                                           std::string& command,
                                           int timeout_seconds,
 										  char *read_buffer,
-										  int read_buffer_size)
+										  int read_buffer_size,
+                                          bool is_zeromq_bind_present,
+                                          const std::string& zeromq_bind)
     {
 		const bool is_executing_command = true;        
         int rc;
@@ -340,7 +375,9 @@ namespace ssh_utils
                           (&command),
 						  read_buffer,
 						  read_buffer_size,
-                          false);
+                          false,
+                          is_zeromq_bind_present,
+                          zeromq_bind);
     }
 
     int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec)

@@ -213,15 +213,33 @@ int main(int argc, char *argv[])
         ("command,C", po::value< std::string >(), "Command to execute.")
         ("username,U", po::value< std::string >(), "Username.")
         ("password,P", po::value< std::string >(), "First password to try.")
-        ("zeromq_bind,b", po::value< std::vector<std::string> >(), "One or more ip_address:port pairs to publish ZeroMQ messages from, e.g. 'tcp://127.0.0.1:5556'.")
+        ("zeromq_bind,b", po::value< std::string >(), "One more ip_address:port pairs to publish ZeroMQ messages from, e.g. 'tcp://127.0.0.1:5556'.")
         ("timeout,T", po::value< int >(), "Timeout in seconds for command. Put <= 0 for infinity.")
         ("verbose,V", "Verbose debug output.");  
     po::positional_options_description positional_desc;
-    positional_desc.add("command", -1);
+    positional_desc.add("command", 10);
 
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc).positional(positional_desc).run(),
-              vm);
+    po::variables_map vm;    
+	try
+	{
+		po::store(po::command_line_parser(argc, argv)
+				  .options(desc)
+				  .positional(positional_desc)
+				  .run(),
+				  vm);
+	}
+	catch ( const boost::program_options::multiple_occurrences& e )
+	{
+		std::cerr << "Error parsing command-line arguments." << std::endl;
+		std::cerr << e.what() << " from option: " << e.get_option_name() << std::endl;
+		exit(1);
+	}
+	catch ( const boost::program_options::error& e )
+	{
+		std::cerr << "Error parsing command-line arguments." << std::endl;
+		std::cerr << e.what() << std::endl;
+		exit(1);
+	}
     po::notify(vm);
 
     std::string host;
@@ -276,6 +294,14 @@ int main(int argc, char *argv[])
     {
         timeout = vm["timeout"].as< int >();
     } // if (!vm.count("timeout"))
+
+    std::string zeromq_bind;
+    bool is_zeromq_bind_present = false;
+    if (vm.count("zeromq_bind"))
+    {
+        zeromq_bind = vm["zeromq_bind"].as< std::string >();
+        is_zeromq_bind_present = true;
+    }    
     // ---------------------------------------------------------------------------
 
     // ---------------------------------------------------------------------------
@@ -507,14 +533,16 @@ int main(int argc, char *argv[])
     // -----------------------------------------------------------------------
     //  You now have pexpect-type access. Send commands, get output, act
     //  on output, send more commands, etc.
-    // -----------------------------------------------------------------------    
+    // -----------------------------------------------------------------------      
     ssh_utils::command_execution_without_result(sock,
                                                 session,
                                                 channel,
                                                 command,
                                                 timeout,
 											    read_buffer,
-												read_buffer_size);    
+												read_buffer_size,
+                                                is_zeromq_bind_present,
+                                                zeromq_bind);    
     // -----------------------------------------------------------------------
 
   skip_shell:
