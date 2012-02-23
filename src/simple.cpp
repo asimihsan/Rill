@@ -479,7 +479,7 @@ int main(int argc, char *argv[])
          cnt < 10;
          base_delay *= 2)
     {
-        std::cout << "base_delay: " << base_delay << std::endl;
+        //std::cout << "base_delay: " << base_delay << std::endl;
         rc = ssh_utils::sync_original_prompt(sock,
                                              session,
                                              channel,

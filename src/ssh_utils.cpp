@@ -83,9 +83,9 @@ namespace ssh_utils
         int ld = levenstein_distance(a, b);
         int len_a = a.length();
         int len_b = b.length();
-        std::cout << "a: " << a << std::endl;
-        std::cout << "b: " << b << std::endl;
-        std::cout << "ld: " << ld << ", len_a: " << len_a << std::endl;
+        //std::cout << "a: " << a << std::endl;
+        //std::cout << "b: " << b << std::endl;
+        //std::cout << "ld: " << ld << ", len_a: " << len_a << std::endl;
         if ((len_a == 0) || (len_b == 0))
         {
             rc = 1;
@@ -94,7 +94,7 @@ namespace ssh_utils
         {
             rc = 1;
         }
-        std::cout << "lev rc: " << rc << std::endl;
+        //std::cout << "lev rc: " << rc << std::endl;
         return rc;
     }
 
