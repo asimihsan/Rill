@@ -51,7 +51,8 @@ namespace ssh_utils
                                   bool is_executing_command,
                                   std::string *command,
 								  char *read_buffer,
-								  int read_buffer_size);
+								  int read_buffer_size,
+                                  bool capture_output);
     int read_once_from_channel(int sock,
                                LIBSSH2_SESSION *session,
                                LIBSSH2_CHANNEL *channel,
@@ -65,6 +66,13 @@ namespace ssh_utils
                                                   int timeout_seconds,
 												  char *read_buffer,
 												  int read_buffer_size);
+    void command_execution_without_result(int sock,
+                                          LIBSSH2_SESSION *session,
+                                          LIBSSH2_CHANNEL *channel,                                                  
+                                          std::string& command,
+                                          int timeout_seconds,
+										  char *read_buffer,
+										  int read_buffer_size);
     int levenstein_distance(const std::string& source, const std::string& target);
     int waitsocket(int socket_fd, LIBSSH2_SESSION *session, int timeout_usec);
 }
