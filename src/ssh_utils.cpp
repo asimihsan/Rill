@@ -181,7 +181,9 @@ namespace ssh_utils
         // -------------------------------------------------------------------
         std::stringstream output_all;
 		std::stringstream output_incremental;
+        std::stringstream output_last_line;
         std::string output_incremental_string;
+        std::string output_last_line_string;
 
         long long time_elapsed;        
         int read_rc;
@@ -247,6 +249,8 @@ namespace ssh_utils
             }
             while(read_rc > 0);
             output_incremental_string = output_incremental.str();
+            output_last_line_string = output_incremental_string;
+            output_last_line.str(output_last_line_string);
 
 			if (is_executing_command)
 			{
@@ -268,6 +272,8 @@ namespace ssh_utils
 						//std::cout << "result: \n" << result << std::endl;
 						output_incremental.str(result);
                         output_incremental_string = output_incremental.str();
+                        output_last_line.str(result);
+                        output_last_line_string = output_last_line.str();
 						//std::cout << "output after: \n" << output_incremental.str() << std::endl;
 						have_found_command = true;
 					} // if (parse_rc == true)
@@ -301,16 +307,34 @@ namespace ssh_utils
             {
                 output_all << output_incremental_string;
             }			
-			if (is_executing_command)
-			{
-                std::cout << output_incremental_string; 
-			}			
-            if (is_zeromq_bind_present)
+			if ((is_executing_command) && (!is_zeromq_bind_present))
             {
+                std::cout << output_incremental_string; 
+            }
+            else if (is_executing_command)
+			{
+                std::stringstream current_line;
+                int output_last_line_string_length = output_last_line_string.length();
+                for (int i = 0; i < output_last_line_string_length; i++)
+                {
+                    char c = output_last_line_string[i];
+                    if (c == '\n')
+                    {
+                        break;
+                    }
+                    current_line << c;
+                }
+                std::cout << "test line: " << current_line.str() << std::endl;
+                
                 Json::Value root;
                 root["line"] = output_incremental_string;
-            }
+                Json::StyledWriter writer;
+                std::string output = writer.write(root);
+                //std::cout << output << std::endl;                
+			}			
+
 			output_incremental.str(std::string());			
+            output_last_line.str(std::string());
 
             /* this is due to blocking that would occur otherwise so we loop on
                this condition */ 
