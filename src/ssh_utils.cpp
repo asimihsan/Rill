@@ -23,9 +23,7 @@ namespace ssh_utils
 
     int send_command_to_channel(LIBSSH2_CHANNEL *channel, const std::string &command)
     {
-        std::stringstream command_to_send;
-        command_to_send << command << line_break;        
-        int rc = send_string_to_channel(channel, command_to_send.str());
+		int rc = send_string_to_channel(channel, command);
         return rc;
     }
 
@@ -124,7 +122,9 @@ namespace ssh_utils
         // -------------------------------------------------------------------
 
         send_command_to_channel(channel, unset_prompt);
+		send_line_break_to_channel(channel);
         send_command_to_channel(channel, unique_prompt);        
+		send_line_break_to_channel(channel);
         read_from_channel(sock,
                           session,
                           channel,
@@ -190,10 +190,9 @@ namespace ssh_utils
         const long long wait_duration = MICROSECONDS_IN_ONE_HUNDRETH_SECOND;
 
 		bool parse_rc;			
-        std::string result;
-        boost::regex command_regexp_object;
-		boost::regex prompt_regexp_object;
-		bool have_found_command = false;
+        std::string result;        
+		boost::regex prompt_regexp_object;		
+		bool is_first_read = true;
 		bool have_found_prompt = false;
 
         zmq::context_t context(1);
@@ -215,15 +214,12 @@ namespace ssh_utils
             publisher.bind(zeromq_bind.c_str());
         }
         // -------------------------------------------------------------------
-
+		
 		if (is_executing_command)
 		{
-			std::string escaped_command = parsing::regex_escape((*command));
-			parsing::build_command_ssh_expect_regular_expression(escaped_command,
-																 command_regexp_object);
 			parsing::build_prompt_ssh_expect_regular_expression(prompt_regexp,
-																prompt_regexp_object);
-		}
+																prompt_regexp_object);			
+		}		
         for (time_elapsed = 0;
              ;
              time_elapsed += wait_duration)
@@ -249,37 +245,19 @@ namespace ssh_utils
             }
             while(read_rc > 0);
             output_incremental_string = output_incremental.str();
+			if ((is_executing_command) &&
+				(is_first_read) &&
+				(output_incremental_string.length() > 0))
+			{
+				trim_left(output_incremental_string);
+				is_first_read = false;
+			} // if (is_first_read)
+
             output_last_line_string = output_incremental_string;
             output_last_line.str(output_last_line_string);
 
 			if (is_executing_command)
 			{
-				// -----------------------------------------------------------
-				//	We always expect to see the command at the start of the
-				//	channel's output. If we haven't found it yet then look for it
-				//	and once we find it reset the output stream to exclude
-				//	the command.
-				// -----------------------------------------------------------
-				if (!have_found_command)
-				{
-					parse_rc = parsing::parse_ssh_command_output(output_incremental_string,
-																 command_regexp_object,
-																 result);       
-					if (parse_rc == true)
-					{
-						//std::cout << "found command!" << std::endl;
-						//std::cout << "output before: \n" << output_incremental.str() << std::endl;
-						//std::cout << "result: \n" << result << std::endl;
-						output_incremental.str(result);
-                        output_incremental_string = output_incremental.str();
-                        output_last_line.str(result);
-                        output_last_line_string = output_last_line.str();
-						//std::cout << "output after: \n" << output_incremental.str() << std::endl;
-						have_found_command = true;
-					} // if (parse_rc == true)
-				} // if (!have_found_command)
-				// -----------------------------------------------------------
-
 				// -----------------------------------------------------------
 				//	If we haven't found the prompt yet look for it as well. If
 				//	we find it and we're executing a command this tells us
@@ -362,7 +340,21 @@ namespace ssh_utils
     {
 		const bool is_executing_command = true;        
         int rc;
+
         rc = send_command_to_channel(channel, command);
+        read_from_channel(sock,
+                          session,
+                          channel,
+                          MICROSECONDS_IN_ONE_SECOND / 2,
+                          false,
+                          NULL,
+						  read_buffer,
+						  read_buffer_size,
+                          false,
+                          false,
+                          std::string());
+
+		send_line_break_to_channel(channel);
         std::string output = read_from_channel(sock,
                                                session,
                                                channel,
@@ -390,7 +382,21 @@ namespace ssh_utils
     {
 		const bool is_executing_command = true;        
         int rc;
+
         rc = send_command_to_channel(channel, command);
+        read_from_channel(sock,
+                          session,
+                          channel,
+                          MICROSECONDS_IN_ONE_SECOND / 2,
+                          false,
+                          NULL,
+						  read_buffer,
+						  read_buffer_size,
+                          false,
+                          false,
+                          std::string());
+
+		send_line_break_to_channel(channel);
         read_from_channel(sock,
                           session,
                           channel,

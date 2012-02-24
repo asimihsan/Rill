@@ -4,7 +4,7 @@ namespace parsing
 {
 	std::string regex_escape(const std::string& string_to_escape)
 	{
-		static const boost::regex re_boostRegexEscape("[\\^\\.\\$\\|\\(\\)\\[\\]\\*\\+\\?\\/\\\\]");
+		static const boost::regex re_boostRegexEscape("[\\{\\}\\^\\.\\$\\|\\(\\)\\[\\]\\*\\+\\?\\/\\\\]");
 		const std::string rep("\\\\\\1&");
 		std::string result = regex_replace(string_to_escape,
 										   re_boostRegexEscape,
@@ -26,6 +26,7 @@ namespace parsing
         regexp_ss << "(.*)";
         //std::cout << "regexp string: " << regexp_ss.str() << std::endl;
         boost::regex local_regexp_object(regexp_ss.str());
+		//std::cout << "built local_regexp_object";
         regexp_object = local_regexp_object;        
 
 		//std::cout << "build_command_ssh_expect_regular_expression exit." << std::endl;
