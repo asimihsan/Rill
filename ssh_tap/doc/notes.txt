@@ -1,0 +1,91 @@
+-------------------------------------------------------------------------------
+    Building OpenSSL on Windows
+-------------------------------------------------------------------------------
+
+- You need Perl. Install strawberry, it's a good Perl distribution.
+- You need Microsoft Visual Studio 2008 (prefer it to 2010, it'll make later building easier).
+- Download latest source, extract to e.g. I:\libs\openssl-1.0.0.g
+- Open a Visual Studio prompt (Start Menu -> Microsoft Visual Studio 2008 -> Visual Studio Tools -> Microsoft Visual Studio 2008 Prompt)
+- cd to e.g. I:\libs\openssl-1.0.0g
+- Run: "ms\32all.bat".
+- Outputs are:
+
+Libraries:
+out32dll\ssleay32.lib
+out32dll\libeay32.lib
+
+Binaries:
+out32dll\ssleay32.dll
+out32dll\libeay32.dll
+out32dll\openssl.exe
+
+Create environment variables for them (e.g. OPENSSL_LIB, OPENSSL_BIN) and then include into your Visual Studio projects.
+
+OPENSSH_LIB: I:\libs\openssl-1.0.0g\out32
+OPENSSL_BIN: I:\libs\openssl-1.0.0g\out32
+OPENSSL_INCLUDE: I:\libs\openssl-1.0.0g\include
+
+We use out32 instead of out32dll to use the static libraries of OpenSSL.
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+    Building zlib on Windows.
+-------------------------------------------------------------------------------
+- Download source, put into e.g. I:\libs\zlib-1.2.6
+- Edit I:\libs\zlib-1.2.6\win32\Makefile.msc, change instances of "-MD" to "-MT". This makes zlib a static library.
+- Open Visual Studio command prompt.
+- Change directory to e.g. I:\libs\zlib-1.2.6
+- Run: "nmake -f win32/Makefile.msc"
+- Output in root, i.e. I:\libs\zlib-1.2.6
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+    Building libssh2 on Windows
+-------------------------------------------------------------------------------
+
+- You need Microsoft Visual Studio 2008 (prefer it to 2010, it'll make later building easier).
+- Download latest source for libssh2 (not libssh), put into e.g. I:\libs\libssh2-1.4.0
+- Open I:\libs\libssh2-1.4.0\win32\libssh2.dsw in Visual Studio, convert the project.
+- Thereafter you want to open I:\libs\libssh2-1.4.0\win32\libssh2.sln
+- To all configurations add $(OPENSSL_INCLUDE) in Configuration Properties -> C/C++ -> General -> Additional Include Directories.
+- (The above may not work. Just add the absolute versions of the directories instead).
+- Also, if it still doesn't work add to VC++ main directory (Tools -> Options -> Projects and Solutions -> VC++ directories).
+- The contents of 'I:\libs\openssl-1.0.0g\include\openssl' is really odd. Each file is a single line containing the relative location of the actual file. Execute the following Python script to copy the actual header file on top of these:
+
+import os
+import shutil
+from glob import glob
+
+DIRECTORY = r"I:\libs\openssl-1.0.0g\include\openssl"
+header_files = glob(os.path.join(DIRECTORY, "*.h"))
+for header_file in header_files:
+    with open(header_file) as f:
+        new_location = f.readline()
+    new_location = os.path.abspath(os.path.join(DIRECTORY, new_location))
+    if os.path.isfile(new_location):
+        backup = os.path.join(DIRECTORY, os.path.split(header_file)[1] + ".original")
+        shutil.copyfile(header_file, backup)
+        shutil.copyfile(new_location, header_file)
+        
+- Add the Release_lib folder to your VC++ main libraries folders (i.e. I:\libs\libssh2-1.4.0\win32\Release_lib)
+
+- DO NOT TRY THE DEFAULT simple.c. It causes a segfault because you're not allowed to directly free() memory
+allocated by libssh2. D'oh! Just copy/paste a handle sample.
+- Change all projects to use static instead of dynamic libraries (Project Properties -> Configuration Properties -> C/C++ -> Code Generation -> Runtime Library to the non-DLL version).
+- Any include of libssh2 requires the following line at the top:
+
+#ifdef WIN32
+#define LIBSSH2_API __declspec(dllexport)
+#endif
+
+- Build, run simple, check it works.
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+    Building OpenPGM
+-------------------------------------------------------------------------------
+
+- Follow: http://code.google.com/p/openpgm/wiki/OpenPgm5CReferenceBuildLibraryWindows
+
+
+-------------------------------------------------------------------------------
