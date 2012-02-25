@@ -168,6 +168,13 @@ namespace ssh_utils
                                   bool is_zeromq_bind_present,
                                   const std::string& zeromq_bind)
     {   
+        log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ssh_utils::read_from_channel");
+        LOG4CXX_DEBUG(logger, "entry. { timeout_usecs=" << timeout_usecs <<
+                                     ", is_executing_command=" << is_executing_command <<
+                                     ", capture_output=" << capture_output <<
+                                     ", is_zeromq_bind_present=" << is_zeromq_bind_present <<
+                                     "}");
+
 		// -------------------------------------------------------------------
 		//	Validate inputs.
 		// -------------------------------------------------------------------
@@ -211,12 +218,14 @@ namespace ssh_utils
         // -------------------------------------------------------------------
         if (is_zeromq_bind_present)
         {
+            LOG4CXX_DEBUG(logger, "Binding publisher to: " << zeromq_bind.c_str());
             publisher.bind(zeromq_bind.c_str());
         }
         // -------------------------------------------------------------------
 		
 		if (is_executing_command)
 		{
+            LOG4CXX_DEBUG(logger, "Is executing command: " << (*command));
 			parsing::build_prompt_ssh_expect_regular_expression(prompt_regexp,
 																prompt_regexp_object);			
 		}		
@@ -318,14 +327,19 @@ namespace ssh_utils
                this condition */ 
             if(read_rc == LIBSSH2_ERROR_EAGAIN)
             {            
+                //LOG4CXX_DEBUG(logger, "Loop, wait for more.");
                 waitsocket(sock, session, wait_duration);
             }
             else
             {
+                LOG4CXX_ERROR(logger, "Error code '" << read_rc << "' on read, so bail out.");
                 break;
             }
         } // outer for loop based on time and size
-        return output_all.str();
+
+        std::string return_value = output_all.str();
+        LOG4CXX_DEBUG(logger, "returning: \n'" << return_value << "'");
+        return return_value;
     }
 
     std::string get_result_from_command_execution(int sock,

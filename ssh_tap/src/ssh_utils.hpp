@@ -19,6 +19,14 @@
 
 #include <zmq.hpp>
 
+#include <stdlib.h>
+#include <log4cxx/logger.h>
+#include <log4cxx/fileappender.h>
+#include <log4cxx/consoleappender.h>
+#include <log4cxx/patternlayout.h>
+#include <log4cxx/logmanager.h>
+#include <log4cxx/helpers/transcoder.h>
+
 #include "parsing.hpp"
 #include "json_utils.hpp"
 

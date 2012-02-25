@@ -271,6 +271,13 @@ int main(int argc, char *argv[])
 	}
     po::notify(vm);
 
+    logger->setLevel(log4cxx::Level::getInfo());
+    if (vm.count("verbose"))
+    {        
+        logger->setLevel(log4cxx::Level::getTrace());
+        LOG4CXX_DEBUG(logger, "Verbose mode enabled.");
+    }
+
     std::string host;
     if (!vm.count("host"))
     {
@@ -353,6 +360,7 @@ int main(int argc, char *argv[])
     }    
     // ---------------------------------------------------------------------------
 
+    LOG4CXX_DEBUG(logger, "Initialize libssh2");
     rc = libssh2_init(0);
     if (rc != 0) {
         fprintf (stderr, "libssh2 initialization failed (%d)\n", rc);
@@ -362,6 +370,7 @@ int main(int argc, char *argv[])
     /* Ultra basic "connect to port 22 on localhost".  Your code is
      * responsible for creating the socket establishing the connection
      */
+    LOG4CXX_DEBUG(logger, "Bind to port 22");
     sock = socket(AF_INET, SOCK_STREAM, 0);
     hostaddr = inet_addr(host.c_str());
     sin.sin_family = AF_INET;
@@ -376,6 +385,7 @@ int main(int argc, char *argv[])
     /* Create a session instance and start it up. This will trade welcome
      * banners, exchange keys, and setup crypto, compression, and MAC layers
      */
+    LOG4CXX_DEBUG(logger, "Initialize the session.");
     session = libssh2_session_init();
     if (libssh2_session_handshake(session, sock)) {
         fprintf(stderr, "Failure establishing SSH session\n");
@@ -397,6 +407,7 @@ int main(int argc, char *argv[])
     */
 
     /* check what authentication methods are available */
+    LOG4CXX_DEBUG(logger, "Perform user authorization...");
     userauthlist = libssh2_userauth_list(session, username.c_str(), username.length());
     //printf("Authentication methods: %s\n", userauthlist);
     if (strstr(userauthlist, "password") != NULL) {
@@ -477,6 +488,7 @@ int main(int argc, char *argv[])
         goto shutdown;
     }
 
+    LOG4CXX_DEBUG(logger, "Request a shell.")
     /* Request a shell */    
     while( (channel = libssh2_channel_open_session(session)) == NULL &&
            libssh2_session_last_error(session,NULL,NULL,0) ==
@@ -498,12 +510,14 @@ int main(int argc, char *argv[])
     /* Request a terminal with 'vanilla' terminal emulation
      * See /etc/termcap for more options
      */
+    LOG4CXX_DEBUG(logger, "Request a pty.");
     if (libssh2_channel_request_pty(channel, "vanilla")) {
         fprintf(stderr, "Failed requesting pty\n");
         goto skip_shell;
     }
 
     /* Open a SHELL on that pty */
+    LOG4CXX_DEBUG(logger, "Open a shell on the pty.");
     if (libssh2_channel_shell(channel)) {
         fprintf(stderr, "Unable to request shell on allocated pty\n");
         goto shutdown;
@@ -527,6 +541,7 @@ int main(int argc, char *argv[])
     //  Make sure we're at a prompt and then reset it to something
     //  we know so that we can expect it in the future.
     // -----------------------------------------------------------------------
+    LOG4CXX_DEBUG(logger, "Synchronize the prompt, reset it.");
     int cnt;
     int base_delay;
     bool is_prompt_synced = false;
@@ -563,6 +578,7 @@ int main(int argc, char *argv[])
     //  You now have pexpect-type access. Send commands, get output, act
     //  on output, send more commands, etc.
     // -----------------------------------------------------------------------      
+    LOG4CXX_DEBUG(logger, "Execute the command.");
     ssh_utils::command_execution_without_result(sock,
                                                 session,
                                                 channel,
@@ -573,7 +589,7 @@ int main(int argc, char *argv[])
                                                 is_zeromq_bind_present,
                                                 zeromq_bind);    
     // -----------------------------------------------------------------------
-
+    
   skip_shell:
     if (channel) {
         libssh2_channel_free(channel);
