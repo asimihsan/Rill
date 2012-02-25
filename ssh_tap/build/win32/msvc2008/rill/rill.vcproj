@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;..\..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;$(BOOST_HOME)&quot;"
+				AdditionalIncludeDirectories="&quot;..\..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;..\..\..\..\..\lib\yaml-cpp\include&quot;;&quot;$(BOOST_HOME)&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC;LOG4CXX_STATIC"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib rpcrt4.lib yaml.lib libzmq.lib log4cxx.lib apr-1.lib aprutil-1.lib"
+				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib rpcrt4.lib yaml.lib libzmq.lib log4cxx.lib apr-1.lib aprutil-1.lib libyaml-cppmd.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\..\..\dep;&quot;$(BOOST_LIB)&quot;"
 				GenerateDebugInformation="true"
@@ -122,7 +122,7 @@
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
-				AdditionalIncludeDirectories="&quot;..\..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;$(BOOST_HOME)&quot;"
+				AdditionalIncludeDirectories="&quot;..\..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;..\..\..\..\..\lib\yaml-cpp\include&quot;;&quot;$(BOOST_HOME)&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC;LOG4CXX_STATIC"
 				StringPooling="true"
 				RuntimeLibrary="0"
@@ -143,7 +143,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib rpcrt4.lib yaml.lib libzmq.lib log4cxx.lib apr-1.lib aprutil-1.lib xml.lib"
+				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib libyaml-cppmd.lib rpcrt4.lib yaml.lib libzmq.lib log4cxx.lib apr-1.lib aprutil-1.lib xml.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\..\..\dep;&quot;$(BOOST_LIB)&quot;"
 				GenerateManifest="true"
