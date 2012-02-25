@@ -203,7 +203,10 @@ namespace ssh_utils
 		bool have_found_prompt = false;
 
         zmq::context_t context(1);
-        zmq::socket_t publisher(context, ZMQ_PUB);
+        zmq::socket_t publisher(context, ZMQ_PUB);        
+        Json::Value json_root;
+        Json::FastWriter json_writer;
+        std::string json_string;
         // -------------------------------------------------------------------
 
         // -------------------------------------------------------------------
@@ -258,6 +261,7 @@ namespace ssh_utils
 				(is_first_read) &&
 				(output_incremental_string.length() > 0))
 			{
+                LOG4CXX_DEBUG(logger, "Left trip output for first and only time.");
 				trim_left(output_incremental_string);
 				is_first_read = false;
 			} // if (is_first_read)
@@ -290,35 +294,49 @@ namespace ssh_utils
 				// -----------------------------------------------------------
 			} // if (is_executing_command)
 			
-            if (capture_output)
+            // ---------------------------------------------------------------
+            //  If there is any output currently available, then 
+            //  there are three branches here:
+            //
+            //  1) Are we capturing the output into a single, massive stream
+            //  so that we can return it at the end? If so, then put
+            //  the current increment of output into output_all.
+            //
+            //  2) Are we executing a command, and are we only outputting it
+            //  to console? If so then do so.
+            //
+            //  3) Are we executing a command, and are we only outputting it
+            //  to a ZeroMQ binding? If so then do so.
+            // ---------------------------------------------------------------
+            if (output_incremental_string.length() > 0)
             {
-                output_all << output_incremental_string;
-            }			
-			if ((is_executing_command) && (!is_zeromq_bind_present))
-            {
-                std::cout << output_incremental_string; 
-            }
-            else if (is_executing_command)
-			{
-                std::stringstream current_line;
-                int output_last_line_string_length = output_last_line_string.length();
-                for (int i = 0; i < output_last_line_string_length; i++)
+                if (capture_output)
                 {
-                    char c = output_last_line_string[i];
-                    if (c == '\n')
-                    {
-                        break;
-                    }
-                    current_line << c;
+                    // Capturing the output.
+                    output_all << output_incremental_string;
+                }			
+			    if ((is_executing_command) && (!is_zeromq_bind_present))
+                {
+                    // Only output to console.
+                    std::cout << output_incremental_string; 
                 }
-                std::cout << "test line: " << current_line.str() << std::endl;
-                
-                Json::Value root;
-                root["line"] = output_incremental_string;
-                Json::StyledWriter writer;
-                std::string output = writer.write(root);
-                //std::cout << output << std::endl;                
-			}			
+                else if (is_executing_command)
+			    {
+                    // Only output to ZeroMQ binding.                
+                    json_root.clear();
+                    json_root["contents"] = output_incremental_string;
+                    json_string = json_writer.write(json_root);
+                    trim(json_string);
+                    LOG4CXX_DEBUG(logger, "Sending JSON via ZeroMQ: " << json_string);
+                    int json_size = json_string.length();
+                    zmq::message_t zmq_message(json_size);
+                    snprintf((char *)zmq_message.data(),
+                             json_size,
+                             json_string.c_str());
+                    publisher.send(zmq_message);
+			    }			
+            } // if (output_incremental_string.length() > 0)
+            // ---------------------------------------------------------------
 
 			output_incremental.str(std::string());			
             output_last_line.str(std::string());

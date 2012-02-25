@@ -23,7 +23,7 @@ if __name__ == "__main__":
     
     PROTOCOL = "tcp"
     HOSTNAME = "127.0.0.1"
-    PORTS = [5556, 5557]
+    PORTS = [2000]
     FILTER = ""
     
     connections = ["%s://%s:%s" % (PROTOCOL, HOSTNAME, port) for port in PORTS]
