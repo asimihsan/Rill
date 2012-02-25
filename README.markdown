@@ -19,10 +19,9 @@ Non-functional requirements:
 TODO
 ----
 
--   Add masspinger to rill.
 -   Confirm ssh_tap works for the two log files. We need to output full lines, one ZeroMQ message per line, no parsing of lines.
--   Write a parser that hooks into the log files and outputs parsed data, i.e. a JSON pair (datetime, contents).
--   Write a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
+-   Write a Python mockup of a parser that hooks into the log files and outputs parsed data, i.e. a JSON pair (datetime, contents).
+-   Write a Python mockup of a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
 
 TODO (done)
 -----------
@@ -35,3 +34,4 @@ TODO (done)
     -   Durable store information.
 -   Add static build of log4cxx.
 -   Add logging to ssh_tap.
+-   Add masspinger to rill.
