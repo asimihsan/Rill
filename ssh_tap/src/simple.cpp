@@ -65,6 +65,8 @@ using namespace boost::algorithm;
 #include <log4cxx/logmanager.h>
 #include <log4cxx/helpers/transcoder.h>
 
+#include <yaml.h>
+
 #include "ssh_utils.hpp"
 #include "parsing.hpp"       
 #include "dns_utils.hpp"

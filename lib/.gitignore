@@ -6,6 +6,11 @@ apache-log4cxx*/Release
 apache-log4cxx*/Debug
 apr/Lib*/*
 apr-util/Lib*/*
+yaml-cpp*/CMakeFiles
+yaml-cpp*/test
+yaml-cpp*/util
+yaml-cpp*/yaml-cpp.dir
+
 
 *.htm
 *.exe

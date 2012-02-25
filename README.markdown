@@ -19,7 +19,6 @@ Non-functional requirements:
 TODO
 ----
 
-
 -   Add masspinger to rill.
 -   Confirm ssh_tap works for the two log files. We need to output full lines, one ZeroMQ message per line, no parsing of lines.
 -   Write a parser that hooks into the log files and outputs parsed data, i.e. a JSON pair (datetime, contents).
