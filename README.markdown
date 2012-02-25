@@ -4,7 +4,7 @@ Rill
 Introduction
 ------------
 
-Rill will monitor many file-based log files on many systems over SSH. Its primary focus is on a "light touch": target systems are only required to offer SSH access. Such access need not be based on public-keys and no software or configuration is required on the target boxes.  Moreover, Rill's design emphasises decomposition and interfaces over network sockets so that sub-components are easily grokable and reusable in other projects.
+Rill will monitor many file-based log files on many systems over SSH. Its primary focus is on a "light touch": target systems are only required to offer SSH access. Such access need not be based on public-keys because this would imply we are able to modify the server's authorized_keys file. In general no software or configuration is required on the target boxes.  Moreover, Rill's design emphasises decomposition and interfaces over network sockets so that sub-components are easily grokable and reusable in other projects.
 
 Functional requirements:
 
@@ -19,7 +19,6 @@ Non-functional requirements:
 TODO
 ----
 
--   Write a Python mockup of a parser that hooks into the log files and outputs parsed data, i.e. a JSON pair (datetime, contents).
 -   Write a Python mockup of a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
 
 TODO (done)
@@ -35,3 +34,4 @@ TODO (done)
 -   Add logging to ssh_tap.
 -   Add masspinger to rill.
 -   Confirm ssh_tap works for the two log files. We need to output full lines, one ZeroMQ message per line, no parsing of lines.
+-   Write a Python mockup of a parser that hooks into the log files and outputs parsed data, i.e. a JSON pair (datetime, contents).
