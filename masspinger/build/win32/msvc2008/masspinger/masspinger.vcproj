@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="ssh_tap"
-	ProjectGUID="{4D3C678B-3A73-4645-9B0E-AB13522E5FF0}"
-	RootNamespace="rill"
+	Name="masspinger"
+	ProjectGUID="{F12B0905-DD0D-40E0-A6B7-D71D08581357}"
+	RootNamespace="masspinger"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -41,15 +41,14 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;..\..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;..\..\..\..\..\lib\yaml-cpp\include&quot;;&quot;$(BOOST_HOME)&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC;LOG4CXX_STATIC"
+				AdditionalIncludeDirectories="&quot;$(BOOST_HOME)&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;"
+				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC;LOG4CXX_STATIC"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
-				EnablePREfast="false"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -62,12 +61,11 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib libyaml-cppmd.lib rpcrt4.lib yaml.lib libzmq.lib log4cxx.lib apr-1.lib aprutil-1.lib xml.lib"
+				AdditionalDependencies="log4cxx.lib apr-1.lib aprutil-1.lib xml.lib libzmq.lib libyaml-cppmd.lib rpcrt4.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="..\..\..\..\..\dep;&quot;$(BOOST_LIB)&quot;"
 				GenerateDebugInformation="true"
 				SubSystem="1"
-				EntryPointSymbol=""
 				TargetMachine="1"
 			/>
 			<Tool
@@ -87,7 +85,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-				PageHeapConserveMemory="false"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -95,7 +92,7 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory=".\Release"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="1"
@@ -121,16 +118,13 @@
 				Optimization="3"
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				AdditionalIncludeDirectories="&quot;..\..\..\..\..\lib\zlib-1.2.6&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;;&quot;..\..\..\..\..\lib\openssl-1.0.0g\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\include&quot;;&quot;..\..\..\..\..\lib\libssh2-1.4.0\win32&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;..\..\..\..\..\lib\yaml-cpp\include&quot;;&quot;$(BOOST_HOME)&quot;"
+				AdditionalIncludeDirectories="&quot;$(BOOST_HOME)&quot;;&quot;..\..\..\..\..\lib\zeromq-2.1.11\include&quot;;&quot;..\..\..\..\..\lib\apache-log4cxx-0.10.0\src\main\include&quot;;&quot;..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\&quot;;&quot;..\..\..\..\..\lib\yaml-0.1.4\include&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;LIBSSH2_WIN32;_CONSOLE;_WIN32_WINDOWS;JSON_IS_AMALGAMATION;ZMQ_STATIC;LOG4CXX_STATIC"
-				StringPooling="true"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				DebugInformationFormat="0"
-				EnablePREfast="false"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -143,15 +137,13 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ws2_32.lib zlib.lib libeay32.lib ssleay32.lib libssh2.lib libyaml-cppmd.lib rpcrt4.lib yaml.lib libzmq.lib log4cxx.lib apr-1.lib aprutil-1.lib xml.lib"
+				AdditionalDependencies="log4cxx.lib apr-1.lib aprutil-1.lib xml.lib libzmq.lib libyaml-cppmd.lib rpcrt4.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="..\..\..\..\..\dep;&quot;$(BOOST_LIB)&quot;"
-				GenerateManifest="true"
-				GenerateDebugInformation="false"
+				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				EntryPointSymbol=""
 				TargetMachine="1"
 			/>
 			<Tool
@@ -174,7 +166,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="echo POSTBUILDSTEP for $(ProjectName)&#x0D;&#x0A;&#x0D;&#x0A;xcopy &quot;$(OutDir)\ssh_tap.exe&quot; &quot;..\..\..\..\..\bin\win32&quot; /i /d /y&#x0D;&#x0A;if errorlevel 1 goto BuildEventFailed&#x0D;&#x0A;&#x0D;&#x0A;goto BuildEventOK&#x0D;&#x0A;:BuildEventFailed&#x0D;&#x0A;echo POSTBUILDSTEP for $(ProjectName) FAILED&#x0D;&#x0A;exit 1&#x0D;&#x0A;:BuildEventOK&#x0D;&#x0A;echo POSTBUILDSTEP for $(ProjectName) COMPLETED OK&#x0D;&#x0A;"
+				CommandLine="echo POSTBUILDSTEP for $(ProjectName)&#x0D;&#x0A;&#x0D;&#x0A;xcopy &quot;$(OutDir)\masspinger.exe&quot; &quot;..\..\..\..\..\bin\win32&quot; /i /d /y&#x0D;&#x0A;if errorlevel 1 goto BuildEventFailed&#x0D;&#x0A;&#x0D;&#x0A;goto BuildEventOK&#x0D;&#x0A;:BuildEventFailed&#x0D;&#x0A;echo POSTBUILDSTEP for $(ProjectName) FAILED&#x0D;&#x0A;exit 1&#x0D;&#x0A;:BuildEventOK&#x0D;&#x0A;echo POSTBUILDSTEP for $(ProjectName) COMPLETED OK&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -187,23 +179,15 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\..\..\src\dns_utils.cpp"
+				RelativePath="..\..\..\..\src\Host.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\..\src\json_utils.cpp"
+				RelativePath="..\..\..\..\src\ping.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\..\src\parsing.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\..\..\src\simple.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\..\..\src\ssh_utils.cpp"
+				RelativePath="..\..\..\..\src\Pinger.cpp"
 				>
 			</File>
 		</Filter>
@@ -213,19 +197,19 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\..\..\..\src\dns_utils.hpp"
+				RelativePath="..\..\..\..\src\Host.hpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\..\src\json_utils.hpp"
+				RelativePath="..\..\..\..\src\icmp_header.hpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\..\src\parsing.hpp"
+				RelativePath="..\..\..\..\src\ipv4_header.hpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\..\src\ssh_utils.hpp"
+				RelativePath="..\..\..\..\src\Pinger.hpp"
 				>
 			</File>
 		</Filter>
@@ -233,10 +217,6 @@
 			Name="Resource Files"
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
-			>
-		</Filter>
-		<Filter
-			Name="jsoncpp"
 			>
 			<File
 				RelativePath="..\..\..\..\..\lib\jsoncpp-0.6.0-rc2\jsoncpp.cpp"
