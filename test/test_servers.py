@@ -110,7 +110,8 @@ if __name__ == "__main__":
                                                 server_id=server,
                                                 contents=contents)
                 if random.randint(1, 2) != 2:
-                    # sometimes only print half a line.
+                    # sometimes duplicate and fragment the line.
+                    line = '\r\n'.join([line, line])
                     index = random.randint(1, len(line)-1)
                     part1 = line[:index]
                     part2 = line[index:]
