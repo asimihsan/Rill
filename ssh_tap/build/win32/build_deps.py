@@ -198,6 +198,67 @@ def build_re2(re2_directory, deps_directory):
         return
     destination = os.path.join(deps_directory, "re2.lib")
     shutil.copy(output_file, destination)
+    
+def build_log4cxx(log4cxx_directory, deps_directory):
+    logger = logging.getLogger("%s.build_log4cxx" % (APP_NAME, ))
+    logger.debug("entry. log4cxx_directory: %s, deps_directory: %s" % (log4cxx_directory, deps_directory))
+
+    sln_filepath = os.path.join(log4cxx_directory, "projects", "log4cxx.sln")
+    if not os.path.isfile(sln_filepath):
+        logger.error("MSVC solution file %s does not exist." % (sln_filepath, ))
+        return    
+    cmd = r"msbuild.exe %s /target:log4cxx /p:Configuration=Release" % (sln_filepath, )
+    logger.debug("executing: %s" % (cmd, ))
+    proc = subprocess.Popen(cmd,
+                            cwd=log4cxx_directory,
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        print line.rstrip("\n")
+    proc.wait()
+
+    log4cxx_output_file = os.path.join(log4cxx_directory,
+                                       "projects",
+                                       "Release",
+                                       "log4cxx.lib")
+    apr_output_file = os.path.join(log4cxx_directory,
+                                   os.pardir,
+                                   "apr",
+                                   "LibR",
+                                   "apr-1.lib")
+    apr_util_output_file = os.path.join(log4cxx_directory,
+                                        os.pardir,
+                                        "apr-util",
+                                        "LibR",
+                                        "aprutil-1.lib")
+    xml_output_file = os.path.join(log4cxx_directory,
+                                    os.pardir,
+                                    "apr-util",
+                                    "xml",
+                                    "expat",
+                                    "lib",
+                                    "LibR",
+                                    "xml.lib")
+    if not os.path.isfile(log4cxx_output_file):
+        logger.error("Cannot file log4cxx output file: %s" % (log4cxx_output_file, ))
+        return
+    if not os.path.isfile(apr_output_file):
+        logger.error("Cannot file apr output file: %s" % (apr_output_file, ))
+        return
+    if not os.path.isfile(apr_util_output_file):
+        logger.error("Cannot file aprutil output file: %s" % (apr_util_output_file, ))
+        return
+    if not os.path.isfile(xml_output_file):
+        logger.error("Cannot file xml output file: %s" % (xml_output_file, ))
+        return
+    for source_file in [log4cxx_output_file,
+                        apr_output_file,
+                        apr_util_output_file,
+                        xml_output_file]:
+        source_file = os.path.abspath(source_file)
+        filename = os.path.basename(source_file)
+        destination = os.path.join(deps_directory, filename)
+        print "copying %s to %s" % (source_file, destination)
+        shutil.copy(source_file, destination)
 
 def main():
     logger = logging.getLogger("%s.main" % (APP_NAME, ))
@@ -210,7 +271,7 @@ def main():
     assert(os.path.isfile(current_path))
     current_directory = os.path.abspath(os.path.join(current_path, os.pardir))
     assert(os.path.isdir(current_directory))
-    root_directory = os.path.abspath(os.path.join(current_directory, os.pardir, os.pardir))
+    root_directory = os.path.abspath(os.path.join(current_directory, os.pardir, os.pardir, os.pardir))
     assert(os.path.isdir(root_directory))
 
     lib_directory = os.path.abspath(os.path.join(root_directory, "lib"))
@@ -243,6 +304,11 @@ def main():
     assert(len(zeromq_directory) == 1)
     zeromq_directory = os.path.abspath(zeromq_directory[0])
     assert(os.path.isdir(zeromq_directory))
+    
+    log4cxx_directory = glob(os.path.join(lib_directory, "apache-log4cxx*"))
+    assert(len(log4cxx_directory) == 1)
+    log4cxx_directory = os.path.abspath(log4cxx_directory[0])
+    assert(os.path.isdir(log4cxx_directory))
 
     #re2_directory = glob(os.path.join(lib_directory, "re2*"))
     #assert(len(re2_directory) == 1)
@@ -252,10 +318,11 @@ def main():
 
     #build_zlib(zlib_directory, deps_directory)
     #build_openssl(openssl_directory, deps_directory)
-    build_libssh2(libssh2_directory, deps_directory)
-    build_yaml(yaml_directory, deps_directory)
-    build_zeromq(zeromq_directory, deps_directory)
+    #build_libssh2(libssh2_directory, deps_directory)
+    #build_yaml(yaml_directory, deps_directory)
+    #build_zeromq(zeromq_directory, deps_directory)
     #build_re2(re2_directory, deps_directory)
+    build_log4cxx(log4cxx_directory, deps_directory)
 
 if __name__ == "__main__":
     main()

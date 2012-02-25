@@ -1,0 +1,16 @@
+# ----------------------------------------------------------------------------
+#   Box configuration file.
+# ----------------------------------------------------------------------------
+
+friendly name:          testvm.1
+dns hostname:           testvm.1
+username:               ubuntu
+password:               password
+type:                   virtual machine test box
+log files:
+    -   name:           messages
+        type:           messages
+        full path:      /home/ubuntu/test.log
+
+# ----------------------------------------------------------------------------
+        

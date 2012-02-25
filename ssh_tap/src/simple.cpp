@@ -57,6 +57,14 @@ using namespace boost::algorithm;
 #include <arpa/inet.h>
 #endif
 
+#include <stdlib.h>
+#include <log4cxx/logger.h>
+#include <log4cxx/fileappender.h>
+#include <log4cxx/consoleappender.h>
+#include <log4cxx/patternlayout.h>
+#include <log4cxx/logmanager.h>
+#include <log4cxx/helpers/transcoder.h>
+
 #include "ssh_utils.hpp"
 #include "parsing.hpp"       
 #include "dns_utils.hpp"
@@ -161,8 +169,29 @@ static void kbd_callback(const char *name, int name_len,
 } // kbd_callback
 */
 
+/**
+ *   Configures console appender.
+ *   @param err if true, use stderr, otherwise stdout.
+ */
+static void configure_logger(bool err) {
+    log4cxx::ConsoleAppenderPtr appender(new log4cxx::ConsoleAppender());
+    if (err) {
+        appender->setTarget(LOG4CXX_STR("System.err"));
+    }
+    log4cxx::LogString default_conversion_pattern(LOG4CXX_STR("%d [%-5p] %c - %m%n"));
+    log4cxx::PatternLayoutPtr layout(new log4cxx::PatternLayout(default_conversion_pattern));
+    appender->setLayout(layout);
+    log4cxx::helpers::Pool pool;
+    appender->activateOptions(pool);
+    log4cxx::Logger::getRootLogger()->addAppender(appender);
+    log4cxx::LogManager::getLoggerRepository()->setConfigured(true);
+}
+
 int main(int argc, char *argv[])
 {
+    configure_logger(false);
+    log4cxx::LoggerPtr logger = log4cxx::Logger::getRootLogger();    
+
     unsigned long hostaddr;
     int rc, auth_pw = 0;
     struct sockaddr_in sin;
