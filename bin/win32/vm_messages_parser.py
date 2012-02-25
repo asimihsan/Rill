@@ -11,6 +11,14 @@ import pprint
 import datetime
 import re
 import json
+import platform
+
+from whoosh.analysis import FancyAnalyzer
+from whoosh.analysis import StemmingAnalyzer
+from whoosh.analysis import StandardAnalyzer
+from whoosh.analysis import LowercaseFilter
+from whoosh.analysis import RegexTokenizer
+from whoosh.analysis import StopFilter
 
 APP_NAME = "vm_messages_parser"
 import logging
@@ -21,6 +29,20 @@ ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+
+# ----------------------------------------------------------------------------
+#   Signal handling
+# ----------------------------------------------------------------------------
+import signal
+def soft_handler(signum, frame):
+    logging.debug('Soft stop')
+    sys.exit(1)
+def hard_handler(signum, frame):
+    logging.debug('Hard stop')
+    os._exit(2)
+signal.signal(signal.SIGINT, soft_handler)
+signal.signal(signal.SIGTERM, hard_handler)
+# ----------------------------------------------------------------------------
 
 class LogDatum(object):
     def __init__(self, string_input):
@@ -59,7 +81,10 @@ class LogDatum(object):
         and the following optional keys:
         -   microsecond: integer
         
-        Add whatever other keys you like for subscribers to this parser.
+        Add whatever other keys you like for subscribers to this parser. The
+        most relevent is "_keywords", which we prepare for MongoDB consumers
+        so that we get to decide how they tokenize the string in preparation
+        for full-text searching.
         
         Example lines:
         
@@ -96,7 +121,28 @@ class LogDatum(object):
         return_value["minute"] = str(datetime_obj.minute)
         return_value["second"] = str(datetime_obj.second)
         return_value["contents"] = self.string_input
+        return_value["_keywords"] = self.tokenize(return_value["contents"])
         return return_value
+        
+    analyzer = StandardAnalyzer()
+    def tokenize(self, input):
+        """Given a blob of input prepare a list of strings that is suitable
+        for full-text indexing by MongoDB.
+        
+        I'm going to cheat and use Whoosh."""
+        
+        m = self.RE_LINE.search(self.string_input)
+        if not m:
+            return []    
+        contents = m.group(4)
+        tokens = []
+        for elem in self.analyzer(contents):
+            if hasattr(elem, "pos"):
+                tokens.append((elem.text, elem.pos))
+            else:
+                tokens.append((elem.text, None))        
+        unique_tokens = list(set([text for (text, pos) in tokens]))
+        return sorted(unique_tokens)
         
     def __repr__(self):
         return "LogDatum: %s" % (self.get_dict_representation(), )
@@ -175,7 +221,7 @@ def get_log_data_and_excess_lines(full_lines):
     return (return_value, [])
     
 if __name__ == "__main__":
-    logger.info("starting")
+    logger.debug("starting")
     
     context = zmq.Context(2)
     
@@ -198,32 +244,37 @@ if __name__ == "__main__":
     
     trailing_excess = ""    
     full_lines = []
-    while 1:
-        incoming_string = subscription_socket.recv()
-        logger.debug("Update: '%s'" % (incoming_string, ))
-        try:
-            incoming_object = json.loads(incoming_string)
-        except:
-            logger.exception("Can't decode command:\n%s" % (incoming_string, ))
-            continue        
-        if not validate_command(incoming_object):
-            logger.error("Not a valid command: \n%s" % (incoming_object))
-            continue
-        trailing_excess = ''.join([trailing_excess, incoming_object["contents"]])     
-        (new_full_lines, trailing_excess) = split_contents_and_return_excess(trailing_excess)        
-        full_lines.extend(new_full_lines)
-        logger.debug("full_lines:\n%s" % (pprint.pformat(full_lines), ))
-        logger.debug("trailing_excess:\n%s" % (trailing_excess, ))
-        
-        # --------------------------------------------------------------------
-        # We now have lots of full lines and some trailing excess. Since a 
-        # log datum may consist of more than one full line we perform a
-        # similar operation to above. We pass all the full lines to a
-        # function which will generate LogDatum object and return
-        # "trailing excess" full lines.
-        # --------------------------------------------------------------------
-        (log_data, full_lines) = get_log_data_and_excess_lines(full_lines)   
-        for log_datum in log_data:
-            logger.debug("publishing:\n%r" % (log_datum, ))
-            publish_socket.send(str(log_datum))            
-        # --------------------------------------------------------------------
+    try:
+        while 1:
+            incoming_string = subscription_socket.recv()
+            logger.debug("Update: '%s'" % (incoming_string, ))
+            try:
+                incoming_object = json.loads(incoming_string)
+            except:
+                logger.exception("Can't decode command:\n%s" % (incoming_string, ))
+                continue        
+            if not validate_command(incoming_object):
+                logger.error("Not a valid command: \n%s" % (incoming_object))
+                continue
+            trailing_excess = ''.join([trailing_excess, incoming_object["contents"]])     
+            (new_full_lines, trailing_excess) = split_contents_and_return_excess(trailing_excess)        
+            full_lines.extend(new_full_lines)
+            logger.debug("full_lines:\n%s" % (pprint.pformat(full_lines), ))
+            logger.debug("trailing_excess:\n%s" % (trailing_excess, ))
+            
+            # ----------------------------------------------------------------
+            # We now have lots of full lines and some trailing excess. Since a 
+            # log datum may consist of more than one full line we perform a
+            # similar operation to above. We pass all the full lines to a
+            # function which will generate LogDatum object and return
+            # "trailing excess" full lines.
+            # ----------------------------------------------------------------
+            (log_data, full_lines) = get_log_data_and_excess_lines(full_lines)   
+            for log_datum in log_data:
+                logger.debug("publishing:\n%r" % (log_datum, ))
+                publish_socket.send(str(log_datum))            
+            # ----------------------------------------------------------------
+    except KeyboardInterrupt:
+        logger.debug("CTRL-C")
+    finally:
+        logger.debug("exiting")

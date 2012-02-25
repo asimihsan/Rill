@@ -61,7 +61,10 @@ RANDOM_WORDS = [
                 "i am a lion watch me roar",
                 "FIERCE UPPER CASE",
                 "a a a a a a a a a a a a a",
-                "aa aa aa aa aa"
+                "aa aa aa aa aa",
+                r"filename.cpp:2424 what happened to /var/example/file??"
+                r"filename2.cpp:1124 what happened to /var/example2/file6??"
+                r"filename3.cpp:1211 what happened to /var/example2/file7??"
                 ]
 LINE_TEMPLATE = Template("${datetime} ${server_id} ${contents}")
 STARTUP_COMMAND = Template("rm -f ${filepath}\n")
