@@ -7,10 +7,12 @@ Introduction
 Rill will monitor many file-based log files on many systems over SSH. Its primary focus is on a "light touch": target systems are only required to offer SSH access. Such accees need not be based on public-keys and no software or configuration is required on the target boxes.  Moreover, Rill's design emphasises decomposition and interfaces over network sockets so that sub-components are easily grokable and reusable in other projects.
 
 Functional requirements:
+
 -   Monitor file-based log files on servers.
 -   Offer historical text-based search over the files.
 
 Non-functional requirements:
+
 -   Be robust to network failures. Historical log data is 1:1 with server log data in the long run (eventually consistent).
 
 TODO
