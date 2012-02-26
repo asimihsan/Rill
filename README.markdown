@@ -20,8 +20,18 @@ TODO
 ----
 
 -   Write a Python mockup of a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
-    -   Call it "robust_ssh_tap"
-    -   
+    -   Call it "robust_ssh_tap"    
+    -   Args:
+        -   m:  What ZeroMQ binding should we get masspinger results from? If not available, assume the host is
+available, i.e. non-robust. We SUBSCRIBE to it with a filter for our hosts.
+        -   p:  What ZeroMQ binding should we use to parse the logs? This is a REQ socket, i.e. request/response.
+        -   b:  What ZeroMQ binding to send out our parsed results? This is a PUBLISH socket.
+        -   h:  Host.
+        -   c:  Command.
+        -   u:  Username.
+        -   p:  Password.
+        -   t:  Timeout.
+        -   v:  Verbose.
 
 TODO (done)
 -----------

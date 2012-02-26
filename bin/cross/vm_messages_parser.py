@@ -25,9 +25,9 @@ from whoosh.analysis import StopFilter
 APP_NAME = "vm_messages_parser"
 import logging
 logger = logging.getLogger(APP_NAME)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)

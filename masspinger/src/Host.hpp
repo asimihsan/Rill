@@ -37,6 +37,7 @@ public:
 
     void set_responsive();
     void set_unresponsive(const boost::system::error_code& error);
+    inline bool get_is_responsive() { return is_responsive; };
 
 private:
     log4cxx::LoggerPtr logger;    
