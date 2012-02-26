@@ -26,6 +26,7 @@ TODO
 available, i.e. non-robust. We SUBSCRIBE to it with a filter for our hosts.
         -   p:  What ZeroMQ binding should we use to parse the logs? This is a REQ socket, i.e. request/response.
         -   b:  What ZeroMQ binding to send out our parsed results? This is a PUBLISH socket.
+        -   s:  What ZeroMQ binding to use for the ssh_tap instance? We'll grab this.
         -   h:  Host.
         -   c:  Command.
         -   u:  Username.
