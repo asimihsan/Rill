@@ -85,18 +85,6 @@ int sock;
 #endif
 // ---------------------------------------------------------------------------
 
-int min(int a, int b)
-{
-    if (a < b)
-    {
-        return a;
-    }
-    else
-    {
-        return b;
-    }
-}
-
 void cleanup()
 {
     libssh2_channel_free(channel);
@@ -199,8 +187,8 @@ int main(int argc, char *argv[])
     struct sockaddr_in sin;
     const char *fingerprint;
     char *userauthlist;
-    int bytecount = 0;
     std::string output;
+    bool is_prompt_synced = false;
 
 	const int read_buffer_size = 0x4000;
 	char read_buffer[read_buffer_size];
@@ -546,7 +534,7 @@ int main(int argc, char *argv[])
     LOG4CXX_DEBUG(logger, "Synchronize the prompt, reset it.");
     int cnt;
     int base_delay;
-    bool is_prompt_synced = false;
+    is_prompt_synced = false;
     for (cnt = 0, base_delay = 5;
          cnt < 10;
          base_delay *= 2)

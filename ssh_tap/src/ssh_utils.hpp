@@ -41,6 +41,7 @@ namespace ssh_utils
     static int MICROSECONDS_IN_ONE_HUNDRETH_SECOND = 10000;
     static int MICROSECONDS_IN_ONE_SECOND = 1000000;
 
+    int min(int a, int b);
     int send_string_to_channel(LIBSSH2_CHANNEL *channel, const std::string& command);
     int send_line_break_to_channel(LIBSSH2_CHANNEL *channel);
     int send_command_to_channel(LIBSSH2_CHANNEL *channel, const std::string &contents);

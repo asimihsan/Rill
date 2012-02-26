@@ -4,6 +4,19 @@ namespace ssh_utils
 {
     using namespace boost::algorithm;
 
+    int min(int a, int b)
+    {
+        if (a < b)
+        {
+            return a;
+        }
+        else
+        {
+            return b;
+        }
+    }
+
+
     static void sleep(int milliseconds)
     {
         boost::this_thread::sleep(boost::posix_time::milliseconds(milliseconds)); 
@@ -37,7 +50,7 @@ namespace ssh_utils
         int rc = 0;        
         const int small_delay = base_delay;
         const int medium_delay = 5 * small_delay;
-        const int large_delay = 10 * small_delay;        
+        //const int large_delay = 10 * small_delay;        
 
         std::string a, b;
 
