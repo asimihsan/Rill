@@ -66,7 +66,7 @@ void Pinger::publish_host_responsiveness(boost::shared_ptr<Host> host)
 {
     logger = logger->getLogger("Pinger::publish_host_responsiveness");    
     LOG4CXX_DEBUG(logger, "Entry. {host->get_hostname()=" << host->get_hostname() << "}");
-    char *response = (host->get_is_responsive()) ? "responsive" : "unresponsive";    
+    const char *response = (host->get_is_responsive()) ? "responsive" : "unresponsive";    
     LOG4CXX_DEBUG(logger, "Response: " << response);
     s_sendmore((*publisher_ptr), host->get_hostname());
     s_send((*publisher_ptr), response);
