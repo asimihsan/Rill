@@ -1,12 +1,3 @@
-/*
- * Sample showing how to do SSH2 connect.
- *
- * The sample code has default values for host name, user name, password
- * and path to copy, but you can specify them on the command line like:
- *
- * "ssh2 host user password [-p|-i|-k]"
- */
-
 #include <cstdio>
 #include <cctype>
 #include <cerrno>
