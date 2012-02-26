@@ -287,7 +287,7 @@ def main(masspinger_zeromq_binding,
 
 def start_process(command_line):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
-    logger.debug("Starting: %s" % (start_process, ))
+    logger.debug("Starting: %s" % (command_line, ))
     if platform.system() == "Linux":
         proc = subprocess.Popen(command_line)
     else:
