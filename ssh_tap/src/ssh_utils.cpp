@@ -335,9 +335,9 @@ namespace ssh_utils
                     LOG4CXX_DEBUG(logger, "Sending JSON via ZeroMQ: " << json_string);
                     int json_size = json_string.length();
                     zmq::message_t zmq_message(json_size);
-                    snprintf((char *)zmq_message.data(),
-                             json_size,
-                             json_string.c_str());
+                    memcpy(zmq_message.data(),
+                           json_string.c_str(),
+                           json_size);
                     publisher.send(zmq_message);
 			    }			
             } // if (output_incremental_string.length() > 0)

@@ -20,6 +20,8 @@ TODO
 ----
 
 -   Write a Python mockup of a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
+    -   Call it "robust_ssh_tap"
+    -   
 
 TODO (done)
 -----------
