@@ -18,12 +18,13 @@ Pinger::Pinger(boost::asio::io_service& io_service,
     // -----------------------------------------------------------------------
     //  Set up ZeroMQ publishing on all bindings.
     // -----------------------------------------------------------------------
-    zmq::context_t context(1);
-    zmq::socket_t publisher(context, ZMQ_PUB);
+    context_ptr = zmq_context_ptr_t(new zmq::context_t(1));
+    publisher_ptr = zmq_socket_ptr_t(new zmq::socket_t(*context_ptr, ZMQ_PUB));
+    
     BOOST_FOREACH( std::string& zeromq_bind, zeromq_binds )
     {
         LOG4CXX_INFO(logger, "Publishing ICMP PING results to ZeroMQ address: " << zeromq_bind.c_str());
-        publisher.bind(zeromq_bind.c_str());
+        (*publisher_ptr).bind(zeromq_bind.c_str());
         
     } // BOOST_FOREACH( std::string& zeromq_bind, zeromq_binds )
     // -----------------------------------------------------------------------
@@ -54,15 +55,37 @@ Pinger::~Pinger()
     socket.close();
 } // Pinger::~Pinger()
 
+// ---------------------------------------------------------------------------
+//  Be very careful with set_host_responsive and set_host_unresponsive.
+//  Because of the way async_wait works set_host_unresponsive is
+//  _always_ called when we re-set async_wait. Hence, after calling
+//  host->set_unresponsive() we don't actually know whether the host
+//  is responsive or not. Ask it!
+// ---------------------------------------------------------------------------
+void Pinger::publish_host_responsiveness(boost::shared_ptr<Host> host)
+{
+    logger = logger->getLogger("Pinger::publish_host_responsiveness");    
+    LOG4CXX_DEBUG(logger, "Entry. {host->get_hostname()=" << host->get_hostname() << "}");
+    char *response = (host->get_is_responsive()) ? "responsive" : "unresponsive";    
+    LOG4CXX_DEBUG(logger, "Response: " << response);
+    s_sendmore((*publisher_ptr), host->get_hostname());
+    s_send((*publisher_ptr), response);
+}
+
 void Pinger::set_host_responsive(boost::shared_ptr<Host> host)
 {
-    host->set_responsive();
+    logger = logger->getLogger("Pinger::set_host_responsive");    
+    LOG4CXX_DEBUG(logger, "Entry. {host->get_hostname()=" << host->get_hostname() << "}");
+    host->set_responsive();    
 } // Pinger::set_host_responsive(boost::shared_ptr<Host> host)
 
 void Pinger::set_host_unresponsive(boost::shared_ptr<Host> host, const boost::system::error_code& error)
 {
-    host->set_unresponsive(error);
+    logger = logger->getLogger("Pinger::set_host_unresponsive");
+    LOG4CXX_DEBUG(logger, "Entry. {host->get_hostname()=" << host->get_hostname() << "}");
+    host->set_unresponsive(error);    
 } // Pinger::set_host_unresponsive(boost::shared_ptr<Host> host)
+// ---------------------------------------------------------------------------
 
 void Pinger::start_receive()
 {
@@ -113,36 +136,7 @@ void Pinger::handle_receive(std::size_t length)
         LOG4CXX_DEBUG(logger, length - ipv4_hdr.header_length()
                               << " bytes from " << ipv4_hdr.source_address()
                               << ": icmp_seq=" << icmp_hdr.sequence_number()
-                              << ", ttl=" << ipv4_hdr.time_to_live());                  
-         
-         // ------------------------------------------------------------------
-         // Publish a ZeroMQ message corresponding to receiving this event.
-         //
-		 // TODO.  Need a protocol spec.  Points to consider:
-		 // -  Should nested data structures be used? Any advantage?
-		 // -  Should more than one event per message be supported?  
-         // Reference:
-         // http://stackoverflow.com/questions/1374468/c-stringstream-string-and-char-conversion-confusion
-         // ------------------------------------------------------------------
-        /*
-		 YAML::Emitter yaml_out;
-		 yaml_out << YAML::BeginMap;
-		 yaml_out << YAML::Key << "source" << YAML::Value << "masspinger";
-		 yaml_out << YAML::Key << "version" << YAML::Value << "100";
-		 yaml_out << YAML::Key << "test" << YAML::Value << "icmp ping";
-		 yaml_out << YAML::Key << "event" << YAML::Value << "raw";		 
-		 if (matching_host->get_is_hostname_available())
-		 {
-			 yaml_out << YAML::Key << "remote_hostname" << YAML::Value << matching_host->get_hostname();
-		 }	     
-		 yaml_out << YAML::Key << "remote_ip" << YAML::Value << ipv4_hdr.source_address().to_string();
-		 yaml_out << YAML::EndMap;
-         const char* event_cstr = yaml_out.c_str();
-         zmq::message_t message(strlen(event_cstr));
-         strncpy((char *)message.data(), event_cstr, strlen(event_cstr));
-         publisher_ptr->send(message);         
-         */
-         // ------------------------------------------------------------------
+                              << ", ttl=" << ipv4_hdr.time_to_live());
     }
     start_receive();
 } // void Pinger::handle_receive(std::size_t length)    
@@ -204,6 +198,10 @@ void Pinger::start_send(boost::shared_ptr<Host> host)
             throw;
         }
     } // catch(boost::system::system_error& e)
+
+    //  As a parting gesture send out a message indicating how responsive
+    //  we think the host is right now.
+    publish_host_responsiveness(host);
 
 } // void Pinger::start_send(boost::shared_ptr<Host> host)
   
