@@ -122,7 +122,12 @@ const char *keyfile2="~/.ssh/id_rsa";
 std::list< std::string > passwords = boost::assign::list_of
     ("!bootstra")       
     ("!bootstrap")    
-    ("mng1")     
+    ("!bootstr")
+    ("mng1")
+    ("bootstra")
+    ("mng2")
+    ("novanetic")
+    ("loadbalancer")
     ("pest123") 
     ("^MISTRb9")
     ("admin")    
@@ -154,17 +159,37 @@ static void kbd_callback(const char *name, int name_len,
  *   Configures console appender.
  *   @param err if true, use stderr, otherwise stdout.
  */
-static void configure_logger(bool err) {
-    log4cxx::ConsoleAppenderPtr appender(new log4cxx::ConsoleAppender());
-    if (err) {
-        appender->setTarget(LOG4CXX_STR("System.err"));
+static void configure_logger(bool err)
+{
+    std::vector< log4cxx::Appender * > appenders;
+    log4cxx::ConsoleAppenderPtr console_appender(new log4cxx::ConsoleAppender());
+    if (err)
+    {
+        console_appender->setTarget(LOG4CXX_STR("System.err"));
+    } // if (err)
+    appenders.push_back(console_appender);
+
+    /*
+    log4cxx::FileAppender *file_appender(new log4cxx::FileAppender());
+    file_appender->setAppend(true);
+    log4cxx::LogString filepath_log_string;
+    std::string filepath = "c:\\temp\\logfile.txt";
+    log4cxx::helpers::Transcoder::decode(filepath, filepath_log_string);
+    file_appender->setFile(filepath_log_string);
+    appenders.push_back(file_appender);
+    */
+
+    BOOST_FOREACH( log4cxx::Appender* appender, appenders )
+    {
+        
+        log4cxx::LogString default_conversion_pattern(LOG4CXX_STR("%d [%-5p] %c - %m%n"));
+        log4cxx::PatternLayoutPtr layout(new log4cxx::PatternLayout(default_conversion_pattern));
+        appender->setLayout(layout);
+        log4cxx::helpers::Pool pool;
+        appender->activateOptions(pool);
+        log4cxx::Logger::getRootLogger()->addAppender(appender);
+
     }
-    log4cxx::LogString default_conversion_pattern(LOG4CXX_STR("%d [%-5p] %c - %m%n"));
-    log4cxx::PatternLayoutPtr layout(new log4cxx::PatternLayout(default_conversion_pattern));
-    appender->setLayout(layout);
-    log4cxx::helpers::Pool pool;
-    appender->activateOptions(pool);
-    log4cxx::Logger::getRootLogger()->addAppender(appender);
     log4cxx::LogManager::getLoggerRepository()->setConfigured(true);
 }
 

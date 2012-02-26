@@ -14,6 +14,7 @@ import datetime
 import re
 import json
 import platform
+import argparse
 
 from whoosh.analysis import FancyAnalyzer
 from whoosh.analysis import StemmingAnalyzer
@@ -25,9 +26,9 @@ from whoosh.analysis import StopFilter
 APP_NAME = "vm_messages_parser"
 import logging
 logger = logging.getLogger(APP_NAME)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
+ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -225,23 +226,44 @@ def get_log_data_and_excess_lines(full_lines):
 if __name__ == "__main__":
     logger.debug("starting")
 
+    parser = argparse.ArgumentParser("Parse incoming ZeroMQ stream of logs, output in another ZeroMQ stream.")
+    parser.add_argument("--ssh_tap",
+                        dest="ssh_tap_zeromq_binding",
+                        metavar="ZEROMQ_BINDING",
+                        required=True,
+                        help="ZeroMQ binding we use for the ssh_tap instance.")
+    parser.add_argument("--results",
+                        dest="results_zeromq_binding",
+                        metavar="ZEROMQ_BINDING",
+                        required=True,
+                        help="ZeroMQ binding we PUBLISH our results to.")
+    parser.add_argument("--verbose",
+                        dest="verbose",
+                        action='store_true',
+                        default=False,
+                        help="Enable verbose debug mode.")
+    args = parser.parse_args()
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+        ch.setLevel(logging.DEBUG)
+        logger.debug("Verbose logging enabled.")
     context = zmq.Context(2)
 
     # ------------------------------------------------------------------------
     #   Subscribing to the raw ssh_tap from a server.
     # ------------------------------------------------------------------------
-    subscription_binding = "tcp://127.0.0.1:2000"
+    logger.debug("Subscribing to ssh_tap at: %s" % (args.ssh_tap_zeromq_binding, ))
     subscription_socket = context.socket(zmq.SUB)
-    subscription_socket.connect(subscription_binding)
+    subscription_socket.connect(args.ssh_tap_zeromq_binding)
     subscription_socket.setsockopt(zmq.SUBSCRIBE, "")
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
     #   Publishing JSON for parsed log data.
     # ------------------------------------------------------------------------
-    publish_binding = "tcp://127.0.0.1:3000"
+    logger.debug("Publishing parsed results at: %s" % (args.results_zeromq_binding, ))
     publish_socket = context.socket(zmq.PUB)
-    publish_socket.connect(publish_binding)
+    publish_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
 
     trailing_excess = ""
