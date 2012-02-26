@@ -4,18 +4,10 @@ namespace ssh_utils
 {
     using namespace boost::algorithm;
 
-    int min(int a, int b)
+    inline int minimum(int a, int b)
     {
-        if (a < b)
-        {
-            return a;
-        }
-        else
-        {
-            return b;
-        }
+            return (a < b) ? a : b;
     }
-
 
     static void sleep(int milliseconds)
     {
@@ -549,7 +541,7 @@ namespace ssh_utils
           const int above = matrix[i-1][j];
           const int left = matrix[i][j-1];
           const int diag = matrix[i-1][j-1];
-          int cell = min( above + 1, min(left + 1, diag + cost));
+          int cell = ssh_utils::minimum( above + 1, min(left + 1, diag + cost));
 
           // Step 6A: Cover transposition, in addition to deletion,
           // insertion and substitution. This step is taken from:
