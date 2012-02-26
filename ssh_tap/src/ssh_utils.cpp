@@ -541,7 +541,7 @@ namespace ssh_utils
           const int above = matrix[i-1][j];
           const int left = matrix[i][j-1];
           const int diag = matrix[i-1][j-1];
-          int cell = ssh_utils::minimum( above + 1, min(left + 1, diag + cost));
+          int cell = ssh_utils::minimum(above + 1, ssh_utils::minimum(left + 1, diag + cost));
 
           // Step 6A: Cover transposition, in addition to deletion,
           // insertion and substitution. This step is taken from:
