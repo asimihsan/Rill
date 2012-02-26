@@ -51,7 +51,7 @@ try:
 
     assert(platform.system() in ["Linux", "Windows"])
     if platform.system() == "Linux":
-        python_executable = r"/usr/bin/env python2.7"
+        python_executable = r"/usr/local/bin/python2.7"
     else:
         python_executable = "python.exe"
 
@@ -289,7 +289,7 @@ def start_process(command_line):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
     logger.debug("Starting: %s" % (command_line, ))
     if platform.system() == "Linux":
-        proc = subprocess.Popen(command_line)
+        proc = subprocess.Popen(command_line, shell=True)
     else:
         # To allow sending CTRL_C_EVENT signals to the process set
         # a Windows-only creation flag.
