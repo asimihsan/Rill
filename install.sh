@@ -118,14 +118,14 @@ fi
 if [[ $INSTALL_BOOST -eq 1 ]];
 then
     cd /usr/local/src/
-    rm -rf boost_1_48_0*
-    wget http://sourceforge.net/projects/boost/files/boost/1.48.0/boost_1_48_0.tar.bz2/download
-    tar jxf boost_1_48_0.tar.bz2
-    cd boost_1_48_0
+    rm -rf boost_1_49_0*
+    wget http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.tar.bz2/download
+    tar jxf boost_1_49_0.tar.bz2
+    cd boost_1_49_0
     ./bootstrap.sh --with-libraries=all
     ./b2 install
     cd /usr/local/src
-    #rm -rf boost_1_48_0*
+    rm -rf boost_1_49_0*
 fi
 # ----------------------------------------------------------------------------- 
 
