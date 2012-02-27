@@ -49,7 +49,7 @@ try:
     root_rill_directory = os.path.abspath(os.path.join(current_directory, os.pardir, os.pardir))
     assert(os.path.isdir(root_rill_directory)), "%s not goot root_rill_directory" % (root_rill_directory, )
 
-    assert(platform.system() in ["Linux", "Windows"])
+    assert(platform.system() in ["Linux", "Windows"]), "Only support Linux and Windows"
     if platform.system() == "Linux":
         python_executable = r"/usr/local/bin/python2.7"
     else:
@@ -92,7 +92,7 @@ def main(masspinger_zeromq_binding,
          password,
          timeout,
          verbose):
-    logger = logging.getLogger("%s.main" % (APP_NAME, ))
+    logger = logging.getLogger("%s.main.%s.%s" % (APP_NAME, host, parser_name))
     logger.debug("entry.")
     logger.debug("masspinger_zeromq_binding: %s" % (masspinger_zeromq_binding, ))
     logger.debug("ssh_tap_zeromq_binding: %s" % (ssh_tap_zeromq_binding, ))

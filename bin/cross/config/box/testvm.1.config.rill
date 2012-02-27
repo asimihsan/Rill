@@ -2,6 +2,8 @@
 #   Box configuration file.
 # ----------------------------------------------------------------------------
 
+production:             no
+
 friendly name:          testvm.1
 dns hostname:           testvm.1
 username:               ubuntu

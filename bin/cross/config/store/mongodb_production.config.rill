@@ -2,7 +2,7 @@
 #   Store config.
 # -----------------------------------------------------------------------------
 
--   name:               default mongodb store
-    hostname:           testvm.3    
+name:               production mongodb store
+hostname:           testvm.3    
 
 # -----------------------------------------------------------------------------

@@ -2,8 +2,8 @@
 #   Parser config.
 # -----------------------------------------------------------------------------
 
--   box type:           virtual machine test box
-    log file type:      messages
-    parser:             vm_messages_parser
+box type:           virtual machine test box
+log file type:      messages
+parser:             vm_messages_parser
 
 # -----------------------------------------------------------------------------
