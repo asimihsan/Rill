@@ -250,7 +250,7 @@ if [[ $INSTALL_PIP -eq 1 ]];
 then
     curl http://python-distribute.org/distribute_setup.py | python2.7
     curl https://raw.github.com/pypa/pip/master/contrib/get-pip.py | python2.7
-    modules="cython pyzmq requests pymongo networkx pyyaml whoosh paramiko supervisor"
+    modules="cython pyzmq requests pymongo networkx pyyaml whoosh paramiko supervisor psutil"
     for module in $(echo $modules)
     do
         pip install ${module} --upgrade
