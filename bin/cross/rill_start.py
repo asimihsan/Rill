@@ -19,6 +19,7 @@ import signal
 from glob import glob
 import pprint
 import yaml
+import psutil
 
 # -----------------------------------------------------------------------------
 #   Logging.
@@ -120,9 +121,9 @@ class GlobalConfig(object):
     def parse(self, global_config_tree):
         if not self.validate_tree(global_config_tree):
             return None
-        self.masspinger_verbose = global_config_tree["masspinger_verbose"] == "on"
-        self.robust_ssh_tap_verbose = global_config_tree["robust_ssh_tap_verbose"] == "on"
-        self.production = global_config_tree["production"] == "yes"
+        self.masspinger_verbose = global_config_tree["masspinger_verbose"]
+        self.robust_ssh_tap_verbose = global_config_tree["robust_ssh_tap_verbose"]
+        self.production = global_config_tree["production"]
         port_ranges = global_config_tree["port_ranges"]
         self.masspinger_port = port_ranges["masspinger_port"]
         self.ssh_tap_port_start = port_ranges["ssh_tap_port_start"]
@@ -419,20 +420,26 @@ def main(verbose):
                 if global_config.get_robust_ssh_tap_verbose():
                     command += " --verbose"
 
-                commands.append((command, host, parser_name))
+                commands.append((command, host, parser_name, results_zeromq_bind))
                 ssh_tap_port += 1
                 parser_port += 1
                 results_port += 1
 
-        logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat(commands), ))
-        for (command, host, parser_name) in commands:
+        logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))
+        for (command, host, parser_name, results_zeromq_bind) in commands:
             #logger.debug("robust_ssh_tap command: %s" % (command, ))
             proc = start_process(command)
             process = Process(command, "robust_ssh_tap. {host=%s, parser_name=%s}" % (host, parser_name), proc)
             all_processes.append(process)
+        for (command, host, parser_name, results_zeromq_bind) in commands:
+            print '-' * 79
+            logger.info("{Host=%s, parser_name=%s, results_zeromq_bind=%s}" % (host, parser_name, results_zeromq_bind))
+            print '-' * 79 + "\n"
         # --------------------------------------------------------------------
 
-        import pdb; pdb.set_trace()
+        while 1:
+            time.sleep(1)
+
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     except:
@@ -445,9 +452,10 @@ def main(verbose):
                               kill=False)
         time.sleep(1)
         for process in all_processes:
-            terminate_process(process.get_process_object(),
-                              process.get_process_name(),
-                              kill=True)
+            killtree(process.get_process_object().pid)
+            #terminate_process(process.get_process_object(),
+            #                  process.get_process_name(),
+            #                  kill=True)
 
 class Process(object):
     def __init__(self, command_line, process_name, process_object):
@@ -509,6 +517,18 @@ def terminate_process(process_object, process_name, kill=False):
     except:
         logger.exception("unhandled exception while terminating %s." % (process_name))
         return False
+
+def killtree(pid, including_parent=True):
+    logger = logging.getLogger("%s.killtree" % (APP_NAME, ))
+    logger.debug("entry. pid: %s, including_parent: %s" % (pid, including_parent))
+    parent = psutil.Process(pid)
+    if len(parent.get_children()) != 0:
+        for child in parent.get_children():
+            logger.debug("has child: %s" % (child.pid, ))
+            killtree(child.pid, including_parent=True)
+    if including_parent:
+        logger.debug("kill parent: %s" % (parent.pid, ))
+        parent.kill()
 
 if __name__ == "__main__":
     logger.debug("starting.")
