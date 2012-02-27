@@ -16,6 +16,18 @@ Non-functional requirements:
 
 -   Be robust to network failures. Historical log data is 1:1 with server log data in the long run (eventually consistent and always available in the face of partitioning).
 
+BUGS
+----
+
+-   On file rotation if we use a version of tail that does not support the '--follow=name' flag we will fail to pick up the new log contents. Fix is to start a total of three libssh2 sessions for a given tap that requires tailing
+    -   The first is the regular tail.
+    -   The second is an empty session, doing nothing and twiddling its thumbs.
+    -   The third is an infinite while [[ 1 ]] sleep 1 that uses 'ls -i' to get the inode number of the file. If it changes:
+        -   Kill the first session.
+        -   Use the second session to tail the file again.
+        -   Start a new session to take the place of backup.
+    Of course you could avoid this by using a real version of tail, but BusyBox doesn't have one.
+
 TODO
 ----
 

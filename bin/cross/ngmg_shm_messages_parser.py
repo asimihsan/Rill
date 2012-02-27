@@ -259,7 +259,8 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled.")
-    context = zmq.Context(1)
+    logger = logging.getLogger("%s.%s" % (APP_NAME, args.collection))
+    context = zmq.Context(2)
 
     # ------------------------------------------------------------------------
     #   Subscribing to the raw ssh_tap from a server.
@@ -278,9 +279,9 @@ if __name__ == "__main__":
     publish_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
 
-    poller = zmq.Poller()
-    poller.register(subscription_socket, zmq.POLLIN)
-    poll_interval = 1000
+    #poller = zmq.Poller()
+    #poller.register(subscription_socket, zmq.POLLIN)
+    #poll_interval = 1000
 
     trailing_excess = ""
     full_lines = []
@@ -294,9 +295,9 @@ if __name__ == "__main__":
         db.create_index(collection_name, "keywords")
     try:
         while 1:
-            socks = dict(poller.poll(poll_interval))
-            if socks.get(subscription_socket, None) != zmq.POLLIN:
-                continue
+            #socks = dict(poller.poll(poll_interval))
+            #if socks.get(subscription_socket, None) != zmq.POLLIN:
+            #    continue
             incoming_string = subscription_socket.recv()
             logger.debug("Update: '%s'" % (incoming_string, ))
             try:
