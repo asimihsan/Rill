@@ -352,7 +352,18 @@ def main(verbose):
         # --------------------------------------------------------------------
         masspinger_port = global_config.get_masspinger_port()
         masspinger_zeromq_bind = "tcp://*:%s" % (masspinger_port, )
-        hostnames = [box_config.get_dns_hostname() for box_config in box_configs]
+
+        hostnames = []
+        is_global_production = global_config.get_production()
+        for box_config in box_configs:
+            logger.debug("box_config: %s" % (box_config, ))
+            if is_global_production and not box_config.get_production():
+                logger.debug("Global is production, but this is a test box.")
+                continue
+            elif not is_global_production and box_config.get_production():
+                logger.debug("Global is test, but this is a product box.")
+                continue
+            hostnames.append(box_config.get_dns_hostname())
         masspinger_cmd = masspinger_template.substitute(executable = masspinger_filepath,
                                                         masspinger_zeromq_bind = masspinger_zeromq_bind,
                                                         hosts = ' '.join(hostnames)).strip()

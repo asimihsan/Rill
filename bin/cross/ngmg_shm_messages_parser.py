@@ -23,7 +23,7 @@ from whoosh.analysis import LowercaseFilter
 from whoosh.analysis import RegexTokenizer
 from whoosh.analysis import StopFilter
 
-APP_NAME = "vm_messages_parser"
+APP_NAME = "ngmg_shm_messages_parser"
 import logging
 logger = logging.getLogger(APP_NAME)
 logger.setLevel(logging.INFO)
@@ -47,6 +47,7 @@ signal.signal(signal.SIGINT, soft_handler)
 signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
+# Feb 26 23:41:29 emer_mf106-wrlinux daemon.notice SYSSTAT(MSMonitor30)[3488]: report status: success: STATUS_OK @MSMonitor30, code=253, severity=0
 class LogDatum(object):
     def __init__(self, string_input):
         self.string_input = string_input
@@ -54,20 +55,21 @@ class LogDatum(object):
     # ------------------------------------------------------------------------
     #   Format of the datetime at the start of the line.
     # ------------------------------------------------------------------------
-    DATETIME_FORMAT = "%Y-%b-%d %H:%M:%S"
+    DATETIME_FORMAT = "%Y %b %d %H:%M:%S"
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
     #   Regular expression to get elements out of the line.
     # ------------------------------------------------------------------------
-    re1='((?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3}))[-:\\/.](?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[-:\\/.](?:(?:[0-2]?\\d{1})|(?:[3][01]{1})))(?![\\d])'	# YYYYMMMDD 1
-    re2='.*?'	# Non-greedy match on filler
-    re3='((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9])):(?:[0-5][0-9])(?::[0-5][0-9])?(?:\\s?(?:am|AM|pm|PM))?)'	# HourMinuteSec 1
-    re4='.*?'	# Non-greedy match on filler
-    re5='((?:\S+))'	# Non-space
-    re6='\s+' # Spaces
-    re7='(.*)' # Rest of the line
-    RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7, re.IGNORECASE | re.DOTALL)
+    re1='((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))'  # Month 1
+    re2='.*?' # Non-greedy match on filler
+    re3='((?:(?:[0-2]?\\d{1})|(?:[3][01]{1})))(?![\\d])'    # Day 1
+    re4='.*?' # Non-greedy match on filler
+    re5='((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9])):(?:[0-5][0-9])(?::[0-5][0-9])?(?:\\s?(?:am|AM|pm|PM))?)'    # HourMinuteSec 1
+    re6='.*?' # Non-greedy match on filler
+    re7='((?:[a-z][a-z\\.\\d\\-]+)\\.(?:[a-z][a-z\\-]+))(?![\\w\\.])' # Fully Qualified Domain Name 1
+    re8='(.*)' # Rest of the line
+    RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8, re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
     def get_dict_representation(self):
@@ -106,12 +108,14 @@ class LogDatum(object):
         m = self.RE_LINE.search(self.string_input)
         if not m:
             return None
-        yyyymmmdd1 = m.group(1)
-        time1 = m.group(2)
-        machine_name = m.group(3)
-        contents = m.group(4)
+        year = str(datetime.datetime.now().year)
+        month1 = m.group(1)
+        day1 = m.group(2)
+        time1 = m.group(3)
+        fqdn = m.group(4)
+        contents = m.group(5)
 
-        full_datetime = " ".join([yyyymmmdd1, time1])
+        full_datetime = " ".join([year, month1, day1, time1])
         try:
             datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
         except ValueError:
@@ -137,7 +141,7 @@ class LogDatum(object):
         m = self.RE_LINE.search(self.string_input)
         if not m:
             return []
-        contents = m.group(4)
+        contents = m.group(5)
         tokens = []
         for elem in self.analyzer(contents):
             if hasattr(elem, "pos"):
@@ -265,7 +269,7 @@ if __name__ == "__main__":
     publish_socket = context.socket(zmq.PUB)
     publish_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
-    
+
     poller = zmq.Poller()
     poller.register(subscription_socket, zmq.POLLIN)
     poll_interval = 1000
