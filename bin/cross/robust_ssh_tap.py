@@ -88,7 +88,12 @@ try:
     ssh_tap_template = Template(""" "${executable}" --host "${host}" --command "${command}" --username "${username}" --password "${password}" --zeromq_bind "${zeromq_bind}" """)
 
     # platform-specific parser templates
-    parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" """)
+    if platform.system() == "Windows":
+        # Test
+        parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" """)
+    else:
+        # Production
+        parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" --collection "${collection}" """)
 
 except:
     logger.exception("unhandled exception during constant creation.")
@@ -232,9 +237,18 @@ def main(masspinger_zeromq_binding,
     else:
         parser_executable = python_executable + ' '
         parser_executable += os.path.join(cross_bin_directory, parser_name + ".py")
-    parser_command = parser_template.substitute(executable = parser_executable,
-                                                ssh_tap_zeromq_bind = ssh_tap_zeromq_binding,
-                                                parser_zeromq_bind = parser_zeromq_binding).strip()
+    if platform.system() == "Windows":
+        parser_command = parser_template.substitute(executable = parser_executable,
+                                                    ssh_tap_zeromq_bind = ssh_tap_zeromq_binding,
+                                                    parser_zeromq_bind = parser_zeromq_binding).strip()
+    else:
+        logger.debug("!!AI cheap hack use parser to shove into DB.")
+        collection = "%s_%s" % (host, parser_name)
+        parser_command = parser_template.substitute(executable = parser_executable,
+                                                    ssh_tap_zeromq_bind = ssh_tap_zeromq_binding,
+                                                    parser_zeromq_bind = parser_zeromq_binding,
+                                                    collection = collection).strip()
+
     if verbose:
         parser_command += " --verbose"
     logger.debug("parser command: %s" % (parser_command, ))
