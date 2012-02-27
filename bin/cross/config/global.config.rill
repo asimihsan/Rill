@@ -2,4 +2,18 @@
 #   Global config.
 # -----------------------------------------------------------------------------
 
+# on or off
+masspinger_verbose:             on
+robust_ssh_tap_verbose:         off
+
+# yes or no
+production:                     no
+
+port_ranges:
+        masspinger_port:        10000
+        ssh_tap_port_start:     11000
+        parser_port_start:      12000
+        results_port_start:     13000
+
+
 # -----------------------------------------------------------------------------

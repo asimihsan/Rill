@@ -295,6 +295,7 @@ int main(int argc, char *argv[])
     {
         host = vm["host"].as< std::string >();        
         trim(host);
+        LOG4CXX_DEBUG(logger, "host: " << host);
     } // if (!vm.count("host"))
 
     std::string command;
@@ -308,6 +309,7 @@ int main(int argc, char *argv[])
     {
         command = vm["command"].as< std::string >();
         trim(command);
+        LOG4CXX_DEBUG(logger, "command: " << command);
     } // if (!vm.count("command"))
 
     std::string username;
@@ -319,12 +321,14 @@ int main(int argc, char *argv[])
     {
         username = vm["username"].as< std::string >();
         trim(username);
+        LOG4CXX_DEBUG(logger, "username: " << username);
     } // if (!vm.count("username"))
 
     if (vm.count("password"))
     {
         std::string password = vm["password"].as< std::string >();
         passwords.push_front(password);
+        LOG4CXX_DEBUG(logger, "password: " << password);
     }
 
     int timeout;
@@ -336,6 +340,7 @@ int main(int argc, char *argv[])
     {
         timeout = vm["timeout"].as< int >();
     } // if (!vm.count("timeout"))
+    LOG4CXX_DEBUG(logger, "timeout: " << timeout);
 
     std::string zeromq_bind;
     bool is_zeromq_bind_present = false;
@@ -344,6 +349,11 @@ int main(int argc, char *argv[])
         zeromq_bind = vm["zeromq_bind"].as< std::string >();
         is_zeromq_bind_present = true;
     }    
+    LOG4CXX_DEBUG(logger, "is_zeromq_bind_present: " << is_zeromq_bind_present);
+    if (is_zeromq_bind_present)
+    {
+        LOG4CXX_DEBUG(logger, "zeromq_bind: " << zeromq_bind);
+    }
     // ---------------------------------------------------------------------------
 
     // ---------------------------------------------------------------------------

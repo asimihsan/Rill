@@ -19,20 +19,10 @@ Non-functional requirements:
 TODO
 ----
 
--   Write a Python mockup of a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
-    -   Call it "robust_ssh_tap"    
-    -   Args:
-        -   m:  What ZeroMQ binding should we get masspinger results from? If not available, assume the host is
-available, i.e. non-robust. We SUBSCRIBE to it with a filter for our hosts.
-        -   p:  What ZeroMQ binding should we use to parse the logs? This is a REQ socket, i.e. request/response.
-        -   b:  What ZeroMQ binding to send out our parsed results? This is a PUBLISH socket.
-        -   s:  What ZeroMQ binding to use for the ssh_tap instance? We'll grab this.
-        -   h:  Host.
-        -   c:  Command.
-        -   u:  Username.
-        -   p:  Password.
-        -   t:  Timeout.
-        -   v:  Verbose.
+-   Write a Python framework like supervisord for parsing config and launching stuff.
+    -   Launching-wise, we always want one masspinger instance, and N robust_ssh_tap instances.
+    -   Write a cheeky sleep(1) script that parses config and does this.
+-   Test the framework on the local install, make sure it works.
 
 TODO (done)
 -----------
@@ -48,3 +38,17 @@ TODO (done)
 -   Add masspinger to rill.
 -   Confirm ssh_tap works for the two log files. We need to output full lines, one ZeroMQ message per line, no parsing of lines.
 -   Write a Python mockup of a parser that hooks into the log files and outputs parsed data, i.e. a JSON pair (datetime, contents).
+-   Write a Python mockup of a combination of ssh_tap / masspinger / XXX that makes this output durable to network loss, just for the real-time stream (not all log data).
+    -   Call it "robust_ssh_tap"    
+    -   Args:
+        -   m:  What ZeroMQ binding should we get masspinger results from? If not available, assume the host is
+available, i.e. non-robust. We SUBSCRIBE to it with a filter for our hosts.
+        -   p:  What ZeroMQ binding should we use to parse the logs? This is a REQ socket, i.e. request/response.
+        -   b:  What ZeroMQ binding to send out our parsed results? This is a PUBLISH socket.
+        -   s:  What ZeroMQ binding to use for the ssh_tap instance? We'll grab this.
+        -   h:  Host.
+        -   c:  Command.
+        -   u:  Username.
+        -   p:  Password.
+        -   t:  Timeout.
+        -   v:  Verbose.
