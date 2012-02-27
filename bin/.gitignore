@@ -7,3 +7,5 @@ pgort90.dll
 *.ilk
 *.exp
 *.lib
+*.pyc
+
