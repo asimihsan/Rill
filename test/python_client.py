@@ -20,21 +20,16 @@ logger.addHandler(ch)
 
 if __name__ == "__main__":
     logger.info("starting")
-    
-    PROTOCOL = "tcp"
-    HOSTNAME = "127.0.0.1"
-    PORTS = [sys.argv[1]]
-    FILTER = ""   
-    
-    connections = ["%s://%s:%s" % (PROTOCOL, HOSTNAME, port) for port in PORTS]
-    logger.debug("Collecting updates from: %s" % (pprint.pformat(connections), ))
-    
-    context = zmq.Context()
+
+    binding = "tcp://127.0.0.1:%s" % (sys.argv[1], )
+    logger.debug("Collecting updates from: %s" % (binding, ))
+
+    context = zmq.Context(1)
     socket = context.socket(zmq.SUB)
-    map(socket.connect, connections)
-    socket.setsockopt(zmq.SUBSCRIBE, FILTER)
-    
+    socket.connect(binding)
+    socket.setsockopt(zmq.SUBSCRIBE, "")
+
     while 1:
         incoming = socket.recv()
         logger.debug("Update: '%s'" % (incoming, ))
-        
+

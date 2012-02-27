@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 
 # on or off
-masspinger_verbose:             on
+masspinger_verbose:             off
 robust_ssh_tap_verbose:         on
 parser_verbose:                 off
 
