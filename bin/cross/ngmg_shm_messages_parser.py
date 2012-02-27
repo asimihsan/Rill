@@ -16,6 +16,9 @@ import json
 import platform
 import argparse
 
+# !!AI hacks
+import database
+
 from whoosh.analysis import FancyAnalyzer
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.analysis import StandardAnalyzer
@@ -241,6 +244,11 @@ if __name__ == "__main__":
                         metavar="ZEROMQ_BINDING",
                         required=True,
                         help="ZeroMQ binding we PUBLISH our results to.")
+    parser.add_argument("--collection",
+                        dest="collection",
+                        metavar="NAME",
+                        default=None,
+                        help="MongoDB collection name")
     parser.add_argument("--verbose",
                         dest="verbose",
                         action='store_true',
@@ -276,6 +284,14 @@ if __name__ == "__main__":
 
     trailing_excess = ""
     full_lines = []
+
+    # !!AI hacks
+    if args.collection:
+        db = database.Database()
+        collection_name = args.collection
+        collection = db.get_collection(collection_name)
+        db.create_index(collection_name, "datetime")
+        db.create_index(collection_name, "keywords")
     try:
         while 1:
             socks = dict(poller.poll(poll_interval))
@@ -308,6 +324,26 @@ if __name__ == "__main__":
             for log_datum in log_data:
                 logger.debug("publishing:\n%r" % (log_datum, ))
                 publish_socket.send(str(log_datum))
+
+                # !!AI hacks
+                # I can't figure out what I can't get thie data off the
+                # publish socket. So screw it, let's put it into the database
+                # right now.
+                if platform.system() == "Linux":
+                    logger.debug("!!AI hacks, just put it into the DB.")
+                    log_dict = log_datum.get_dict_representation()
+                    datetime_obj = datetime.datetime(int(log_dict["year"]),
+                                                     int(log_dict["month"]),
+                                                     int(log_dict["day"]),
+                                                     int(log_dict["hour"]),
+                                                     int(log_dict["minute"]),
+                                                     int(log_dict["second"]))
+                    contents = log_dict["contents"]
+                    keywords = log_dict["_keywords"]
+                    data_to_store = {"datetime": datetime_obj,
+                                     "contents": contents,
+                                     "keywords": keywords}
+                    collection.insert(data_to_store)
             # ----------------------------------------------------------------
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
