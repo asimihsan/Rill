@@ -3,8 +3,9 @@
 # -----------------------------------------------------------------------------
 
 # on or off
-masspinger_verbose:             on
-robust_ssh_tap_verbose:         off
+masspinger_verbose:             off
+robust_ssh_tap_verbose:         on
+parser_verbose:                 off
 
 # yes or no
 production:                     no

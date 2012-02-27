@@ -26,9 +26,9 @@ from whoosh.analysis import StopFilter
 APP_NAME = "vm_messages_parser"
 import logging
 logger = logging.getLogger(APP_NAME)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
@@ -265,11 +265,18 @@ if __name__ == "__main__":
     publish_socket = context.socket(zmq.PUB)
     publish_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
+    
+    poller = zmq.Poller()
+    poller.register(subscription_socket, zmq.POLLIN)
+    poll_interval = 1000
 
     trailing_excess = ""
     full_lines = []
     try:
         while 1:
+            socks = dict(poller.poll(poll_interval))
+            if socks.get(subscription_socket, None) != zmq.POLLIN:
+                continue
             incoming_string = subscription_socket.recv()
             logger.debug("Update: '%s'" % (incoming_string, ))
             try:

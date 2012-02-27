@@ -37,6 +37,20 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 # -----------------------------------------------------------------------------
 
+# ----------------------------------------------------------------------------
+#   Signal handling
+# ----------------------------------------------------------------------------
+import signal
+def soft_handler(signum, frame):
+    logging.debug('Soft stop')
+    sys.exit(1)
+def hard_handler(signum, frame):
+    logging.debug('Hard stop')
+    os._exit(2)
+signal.signal(signal.SIGINT, soft_handler)
+signal.signal(signal.SIGTERM, hard_handler)
+# ----------------------------------------------------------------------------
+
 # -----------------------------------------------------------------------------
 #   Constants.
 # -----------------------------------------------------------------------------
