@@ -431,7 +431,7 @@ def main(verbose):
                 if global_config.get_robust_ssh_tap_verbose():
                     command += " --verbose"
 
-                commands.append((command, host, parser_name, results_zeromq_bind))
+                commands.append((command, host, parser_name, parser_zeromq_bind))
                 ssh_tap_port += 1
                 parser_port += 1
                 results_port += 1

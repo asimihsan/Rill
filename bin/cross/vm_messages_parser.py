@@ -247,7 +247,7 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled.")
-    context = zmq.Context(2)
+    context = zmq.Context(1)
 
     # ------------------------------------------------------------------------
     #   Subscribing to the raw ssh_tap from a server.

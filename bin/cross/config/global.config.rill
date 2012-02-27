@@ -8,7 +8,7 @@ robust_ssh_tap_verbose:         on
 parser_verbose:                 off
 
 # yes or no
-production:                     yes
+production:                     no
 
 port_ranges:
         masspinger_port:        10000

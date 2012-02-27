@@ -159,7 +159,7 @@ def main(masspinger_zeromq_binding,
     assert(not all([is_bin_parser, is_cross_parser])), "Parser is both a binary and a cross."
     # ------------------------------------------------------------------------
 
-    context = zmq.Context(2)
+    context = zmq.Context(1)
 
     # ------------------------------------------------------------------------
     #   Subscribing to the single masspinger instance to determine if
@@ -172,24 +172,27 @@ def main(masspinger_zeromq_binding,
 
     # ------------------------------------------------------------------------
     #   Subscribing to the ssh_tap output, which we'll pass to the parser.
+    #   !!AI No, the parser already SUBSCRIBEs to this.
     # ------------------------------------------------------------------------
-    ssh_tap_sub_socket = context.socket(zmq.SUB)
-    ssh_tap_sub_socket.connect(ssh_tap_zeromq_binding)
-    ssh_tap_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
+    #ssh_tap_sub_socket = context.socket(zmq.SUB)
+    #ssh_tap_sub_socket.connect(ssh_tap_zeromq_binding)
+    #ssh_tap_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
     #   Requesting the services of a parser.
+    #   !!AI No, the parser PUBLISHs its data.
     # ------------------------------------------------------------------------
-    parser_req_socket = context.socket(zmq.REQ)
-    parser_req_socket.connect(parser_zeromq_binding)
+    #parser_req_socket = context.socket(zmq.REQ)
+    #parser_req_socket.connect(parser_zeromq_binding)
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
     #   Publishing JSON for parsed log data.
+    #   !!AI No, the parser publishes it by itself.
     # ------------------------------------------------------------------------
-    results_pub_socket = context.socket(zmq.PUB)
-    results_pub_socket.connect(results_zeromq_binding)
+    #results_pub_socket = context.socket(zmq.PUB)
+    #results_pub_socket.connect(results_zeromq_binding)
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -239,7 +242,7 @@ def main(masspinger_zeromq_binding,
 
     poller = zmq.Poller()
     poller.register(masspinger_sub_socket, zmq.POLLIN)
-    poller.register(ssh_tap_sub_socket, zmq.POLLIN)
+    #poller.register(ssh_tap_sub_socket, zmq.POLLIN)
     poll_interval = 1000
     try:
         # Parser is always running, pop start here.
@@ -288,9 +291,9 @@ def main(masspinger_zeromq_binding,
                 # is dead and further assume the host is alive.
                 logger.debug("Assuming masspinger is dead, and host is alive")
 
-            if socks.get(ssh_tap_sub_socket, None) == zmq.POLLIN:
-                contents = ssh_tap_sub_socket.recv()
-                logger.debug("ssh_tap_sub_read: %s" % (contents, ))
+            #if socks.get(ssh_tap_sub_socket, None) == zmq.POLLIN:
+            #    contents = ssh_tap_sub_socket.recv()
+            #    logger.debug("ssh_tap_sub_read: %s" % (contents, ))
 
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
