@@ -521,7 +521,10 @@ def terminate_process(process_object, process_name, kill=False):
 def killtree(pid, including_parent=True):
     logger = logging.getLogger("%s.killtree" % (APP_NAME, ))
     logger.debug("entry. pid: %s, including_parent: %s" % (pid, including_parent))
-    parent = psutil.Process(pid)
+    try:
+        parent = psutil.Process(pid)
+    except psutil.error.NoSuchProcess:
+        return False
     if len(parent.get_children()) != 0:
         for child in parent.get_children():
             logger.debug("has child: %s" % (child.pid, ))
