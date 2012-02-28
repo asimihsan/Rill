@@ -28,6 +28,8 @@ BUGS
         -   Start a new session to take the place of backup.
     Of course you could avoid this by using a real version of tail, but BusyBox doesn't have one.
 
+-   parsers stop reading in output from ssh_tap via SUBSCRIBE after a while. Why? ssh_tap says it's PUBLISHing it. Does this happen when ssh_tap restarts? Does ZeroMQ SUBSCRIBE just stop working? It's a blocking recv() call...maybe we should restart the parser instance when ssh_tap is restarted?
+
 TODO
 ----
 
