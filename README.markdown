@@ -33,10 +33,58 @@ BUGS
 TODO
 ----
 
--   Write a Python framework like supervisord for parsing config and launching stuff.
-    -   Launching-wise, we always want one masspinger instance, and N robust_ssh_tap instances.
-    -   Write a cheeky sleep(1) script that parses config and does this.
--   Test the framework on the local install, make sure it works.
+- ssh_tap as it stands is alright. I want to extend it to support the following:
+    -   Support multiple, simultaneous command execution. It will open SSH channels within the current session, get to a pexpect state, and then run the commands on them.
+    -   Real-time signalling. I want to be able to SUBSCRIBE to SSH data from a box, regex on it, then send new data based on it. This is exactly what ssh_tap does on it's own, but I want external clients to get raw data fromm ssh_tap and do this on their own.
+    -   Define two types of ZeroMQ sockets - data and signalling.
+        -   The data sockets are where we PUBLISH results. Do we want to have one data socket and publish results based on a text-prefix, and expect subscribers to filter? Or do we want 1:1 ZeroMQ sockets for each session we have open? I'm leaning towards the latter, as I don't want to spam quiet subscribers with redundant noisy traffic. So let's run with many ZeroMQ PUBLISH sockets.
+        -   The signalling sockets XREP sockets where XREP clients can execute the following via JSON:
+            -   all messages which are requests from clients must contain the following fields:
+                -   unique_id: a string that is a globally unique identifier for the particular message. clients should use something like Python's uuid.uuidv4().
+                -   client_id: a string that is a unique identifier for the client within the scope of the system. clients should generate a UUID on startup and assume that the ID is globally unique.
+                -   datetime:  a ISO 8601 compliant string corresponding to the UTC time at which the request was sent. Corresponds to calling the following in Python: datetime.datetime.now().isoformat() + 'Z'. example: '2002-12-25T00:00:00.000Z' (there must be three digits for the millisecond precision).
+            -   all messages which are replies to a given request must contain the following fields:
+                -   unique_id: the same string that was on the incoming request must be returned on the response.
+                -   client_id: the same string that was on the incoming request for the client_id must be returned on the response.
+                -   datetime: ISO 8601 datetime for when the server sent the response.
+                -   status: this field is mandatory. 'ok' if command was succesful, 'failed' if not.
+                -   failure_reason: if status is 'ok' this field may be ommitted. if status is 'failed' this field is mandatory. is a human-readable reason for why the particular request failed.
+            -   global failure modes to consider:
+                -   REP/REQ sockets are durable. if a request arrives that is very old, do we want to discard it? assume everyone is NTP-ed up.                
+            -   create_session. Create a new session to the server that support pexpect-behaviour.
+                -   the request contains no fields besides the globally mandatory ones.
+                -   fields on response:                    
+                    -   session_id: a globally unique identifier that corresponds to the session on the SSH server, that can be referenced in subsequent calls.
+                    -   publish_zeromq_bind: a string for the PUBLISH zeromq binding that the client can SUBSCRIBE to in order to receive data sent from the session. in theory the client has already missed out some data because they'll be SUBSCRIBE-ing a bit late, but assume this initial data isn't interesting (e.g. bash banner). I don't want to have to cache / send this.
+                -   failure modes to consider:
+                    -   how many simultaneous sessions do you really want open? Maybe cap it at N, and reject subsequent create requests.
+            -   delete_session. Immediately delete the session, do not make any special attempt to recover more output from the session.
+                -   fields on request:
+                    -   session_id: the ID for the session.
+                -   fields on response are nothing besides the globally mandatory ones.
+            -   send_data_to_session. Send a block of data to the session. Doesn't necesarily have to be terminated by a line break, and ssh_tap will not append a line break for you.
+                -   fields on request:
+                    -   session_id: what session to push data into.
+                    -   contents: what to push into the session.
+                -   fields on response:
+                    -   bytes written: the return code from libssh2_channel_write(), just punt it back. if this isn't equal to the command length put this in the failure reason.
+                -   failure modes to consider:
+                    -   does the session exist? if not return a failure.
+            -   get_session_info: get information on running sessions right now.
+                -   fields on request:
+                    -   session_id: optional. if specified try to recover information about a particular session. if this is ommitted we will return information about all running sessions.
+                -   fields on response:
+                    -   a list of sessions. could be an empty list, else for each session return:
+                        -   session_id.
+                        -   client_id: for the requester who created the session.
+                        -   datetime: for when the session was opened.
+                        -   bytes written: total number of bytes written into the session.
+                        -   bytes read: total number of bytes read from the session.
+                
+    -   On startup start a pool of e.g. 5 sessions. Get these all ready at the pexpect prompts.
+    -   Do not reuse sessions. When a session gets delete really delete it, don't put it back into a pool of free sessions. This creates exciting race conditions, e.g. hammering ssh_tap with a catastrophic mix of create and delete commands and seeing what it does.
+    -   If ssh_tap thinks it's gotten into a pickle just assert. We assume a robust wrapper, i.e. robust_ssh_tap, is sitting outside ssh_tap ready to relaunch it.
+
 
 TODO (done)
 -----------
@@ -66,3 +114,7 @@ available, i.e. non-robust. We SUBSCRIBE to it with a filter for our hosts.
         -   p:  Password.
         -   t:  Timeout.
         -   v:  Verbose.
+-   Write a Python framework like supervisord for parsing config and launching stuff.
+    -   Launching-wise, we always want one masspinger instance, and N robust_ssh_tap instances.
+    -   Write a cheeky sleep(1) script that parses config and does this.
+-   Test the framework on the local install, make sure it works.
