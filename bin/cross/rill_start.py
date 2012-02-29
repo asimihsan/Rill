@@ -220,6 +220,12 @@ class BoxConfig(object):
     def get_production(self):
         return self.production
 
+    def get_tail_command(self):
+        if self.type == "NGMG":
+            return "tail -f --follow=name"
+        else:
+            return "tail -f"
+
 class LogFile(object):
     def __init__(self, log_name, log_type, log_full_path):
         self.log_name = log_name
@@ -424,7 +430,8 @@ def main(verbose):
                 parser_name = parser_config.get_parser_name()
                 results_zeromq_bind = "tcp://127.0.0.1:%s" % (results_port, )
                 host = box_config.get_dns_hostname()
-                command = "tail -f '%s'" % (log_file.get_full_path(), )
+                tail_prefix = box_config.get_tail_command()
+                command = "%s '%s'" % (tail_prefix, log_file.get_full_path(), )
                 username = box_config.get_username()
                 password = box_config.get_password()
                 command = robust_ssh_tap_template.substitute( \

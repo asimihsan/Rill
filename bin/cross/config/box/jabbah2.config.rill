@@ -4,15 +4,18 @@
 
 production:             yes
 
-friendly name:          andromeda1
-dns hostname:           andromeda1
+friendly name:          jabbah2
+dns hostname:           jabbah2-mgmt
 username:               root
 password:               bootstrap
-type:                   NGMG ShM
+type:                   NGMG
 log files:
     -   name:           messages
         type:           messages
         full path:      /var/log/messages
+    -   name:           ep
+        type:           ep
+        full path:      /var/opt/MetaSwitch/ep.log
 
 # ----------------------------------------------------------------------------
         
