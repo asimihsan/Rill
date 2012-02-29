@@ -259,15 +259,13 @@ def main(masspinger_zeromq_binding,
     #poller.register(ssh_tap_sub_socket, zmq.POLLIN)
     poll_interval = 1000
     try:
-        # Parser is always running, pop start here.
-        if parser_process is None:
-            logger.debug("Launching parser_process...")
-            parser_process = start_process(parser_command)
-
         while 1:
             if ssh_tap_process is None and host_alive:
                 logger.debug("Launching ssh_tap_process...")
                 ssh_tap_process = start_process(ssh_tap_command)
+            if parser_process is None:
+                logger.debug("Launching parser_process...")
+                parser_process = start_process(parser_command)
             if ssh_tap_process and \
                (ssh_tap_process.poll() is None) and \
                (not host_alive):
@@ -275,20 +273,30 @@ def main(masspinger_zeromq_binding,
                 logger.debug("ssh_tap running, host is dead.")
                 if not ssh_tap_process_terminate_requested:
                     logger.debug("terminate ssh_tap...")
-                    terminate_process(ssh_tap_process, "ssh_tap_process")
+                    for (process_object, process_name) in [(ssh_tap_process, "ssh_tap_process"),
+                                                           (parser_process, "parser_process")]:
+                        terminate_process(process_object, process_name)
                     ssh_tap_process_terminate_requested = True
                     ssh_tap_process_terminate_time = time.time()
                 elif (time.time() - ssh_tap_process_terminate_time) > ssh_tap_process_terminate_threshold:
                     logger.debug("kill ssh_tap...")
-                    terminate_process(ssh_tap_process, "ssh_tap_process", kill=True)
+                    for (process_object, process_name) in [(ssh_tap_process, "ssh_tap_process"),
+                                                           (parser_process, "parser_process")]:
+                        terminate_process(process_object, process_name)
                     ssh_tap_process = None
                     ssh_tap_process_terminate_requested = False
                     ssh_tap_process_terminate_time = None
-            elif ssh_tap_process and \
-                 (ssh_tap_process.poll() is not None):
+
+            if ssh_tap_process and \
+               (ssh_tap_process.poll() is not None):
                 # Not running any more.
                 logger.debug("ssh_tap ended, return code: %s" % (ssh_tap_process.poll(), ))
                 ssh_tap_process = None
+            if parser_process and \
+               (parser_process.poll() is not None):
+                # Not running any more.
+                logger.debug("parser ended, return code: %s" % (parser_process.poll(), ))
+                parser_process = None
 
             socks = dict(poller.poll(poll_interval))
             #logger.debug("tick")
