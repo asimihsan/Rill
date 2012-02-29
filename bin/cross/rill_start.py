@@ -365,7 +365,7 @@ def main(verbose):
                 logger.debug("Global is production, but this is a test box.")
                 continue
             elif not is_global_production and box_config.get_production():
-                logger.debug("Global is test, but this is a product box.")
+                logger.debug("Global is test, but this is a production box.")
                 continue
             hostnames.append(box_config.get_dns_hostname())
         masspinger_cmd = masspinger_template.substitute(executable = masspinger_filepath,
