@@ -1,0 +1,11 @@
+bjoern/bjoernmodule.c
+bjoern/common.c
+bjoern/filewrapper.c
+bjoern/request.c
+bjoern/server.c
+bjoern/wsgi.c
+http-parser/http_parser.c
+pip-egg-info/bjoern.egg-info/PKG-INFO
+pip-egg-info/bjoern.egg-info/SOURCES.txt
+pip-egg-info/bjoern.egg-info/dependency_links.txt
+pip-egg-info/bjoern.egg-info/top_level.txt
