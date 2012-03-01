@@ -151,6 +151,9 @@ class LogDatum(object):
         else:
             error_level = "none"
         return_value["error_level"] = error_level
+        possible_error_id_match = re.search("\[(.*?)\]", contents)
+        if possible_error_id_match:
+            return_value["error_id"] = possible_error_id_match.groups()[0]
 
         return return_value
 
