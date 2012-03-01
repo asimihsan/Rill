@@ -50,7 +50,6 @@ signal.signal(signal.SIGINT, soft_handler)
 signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
-# Feb 28 23:30:51 jabbah getpstack_cont.sh: pstack complete, sending SIGCONT to process  (24289)
 class LogDatum(object):
     def __init__(self, string_input):
         self.string_input = string_input
@@ -61,19 +60,25 @@ class LogDatum(object):
     DATETIME_FORMAT = "%Y %b %d %H:%M:%S"
     # ------------------------------------------------------------------------
 
+    # Mar  1 11:37:20 jabbah2 EP 11:37:20.272 0322 0   tDCCli DC_P2P DCClient::main() socket connection made
     # ------------------------------------------------------------------------
     #   Regular expression to get elements out of the line.
     # ------------------------------------------------------------------------
     re1='((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))' # Month 1
-    re2='.*?' # Non-greedy match on filler
+    re2='\s+' #
     re3='(\d+)' # Day number
-    re4='.*?' # Non-greedy filler
+    re4='\s+' #
     re5='((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9])):(?:[0-5][0-9])(?::[0-5][0-9])?(?:\\s?(?:am|AM|pm|PM))?)'    # HourMinuteSec 1
-    re6='.*?' # Non-greedy match on filler
-    re7='((?:[a-z][a-z]+))' # Word 1a
-    re8='\s+\S+\s+\S+\s+\S+\s+\S+' # EP, datetime, log ID, severit
-    re8='\s+(.*)' # the rest
-    RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8, re.IGNORECASE | re.DOTALL)
+    re6='\s+' #
+    re7='\S+' # Word 1a
+    re8='\s+\S+' # EP
+    re9='\s+\S+' # another datetime
+    re10='\s+(\S+)' # log id
+    re11='\s+\S+' # severity number
+    re12='\s+(\S+)' # logger id stars
+    re13='\s+(\S+)' # component ID
+    re14='\s+(.*)' # the rest
+    RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8+re9+re10+re11+re12+re13+re14, re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
     def get_dict_representation(self):
@@ -116,8 +121,10 @@ class LogDatum(object):
         month1 = m.group(1)
         day1 = m.group(2)
         time1 = m.group(3)
-        hostname = m.group(4)
-        contents = m.group(5)
+        log_id = m.group(4)
+        logger_id_with_stars = m.group(5)
+        component_id = m.group(6)
+        contents = m.group(7)
 
         full_datetime = " ".join([year, month1, day1, time1])
         try:
@@ -132,7 +139,19 @@ class LogDatum(object):
         return_value["minute"] = str(datetime_obj.minute)
         return_value["second"] = str(datetime_obj.second)
         return_value["contents"] = self.string_input
-        return_value["_keywords"] = self.tokenize(return_value["contents"])
+        return_value["keywords"] = self.tokenize(return_value["contents"])
+        return_value["log_id"] = log_id
+        return_value["component_id"] = component_id
+
+        # For ep.log two starts is error, one start is warning, when prepended to component.
+        if logger_id_with_stars.startswith("**"):
+            error_level = "error"
+        elif logger_id_with_stars.startswith("*"):
+            error_level = "warning"
+        else:
+            error_level = "none"
+        return_value["error_level"] = error_level
+
         return return_value
 
     analyzer = StandardAnalyzer()
@@ -145,7 +164,7 @@ class LogDatum(object):
         m = self.RE_LINE.search(self.string_input)
         if not m:
             return []
-        contents = m.group(5)
+        contents = m.group(7)
         tokens = []
         for elem in self.analyzer(contents):
             if hasattr(elem, "pos"):
@@ -294,6 +313,7 @@ if __name__ == "__main__":
         collection = db.get_collection(collection_name)
         db.create_index(collection_name, "datetime")
         db.create_index(collection_name, "keywords")
+        db.create_index(collection_name, "error_level")
     try:
         while 1:
             #socks = dict(poller.poll(poll_interval))
@@ -325,6 +345,9 @@ if __name__ == "__main__":
             (log_data, full_lines) = get_log_data_and_excess_lines(full_lines)
             for log_datum in log_data:
                 logger.debug("publishing:\n%r" % (log_datum, ))
+                if log_datum.get_dict_representation() is None:
+                    logger.warning("log_datum not valid, skip.")
+                    continue
                 publish_socket.send(str(log_datum))
 
                 # !!AI hacks
@@ -340,11 +363,10 @@ if __name__ == "__main__":
                                                      int(log_dict["hour"]),
                                                      int(log_dict["minute"]),
                                                      int(log_dict["second"]))
-                    contents = log_dict["contents"]
-                    keywords = log_dict["_keywords"]
-                    data_to_store = {"datetime": datetime_obj,
-                                     "contents": contents,
-                                     "keywords": keywords}
+                    data_to_store = log_dict.copy()
+                    for key in ["year", "month", "day", "hour", "minute", "second"]:
+                        data_to_store.pop(key)
+                    data_to_store["datetime"] = datetime_obj
                     collection.insert(data_to_store)
             # ----------------------------------------------------------------
     except KeyboardInterrupt:

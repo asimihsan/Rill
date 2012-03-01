@@ -324,6 +324,9 @@ if __name__ == "__main__":
             (log_data, full_lines) = get_log_data_and_excess_lines(full_lines)
             for log_datum in log_data:
                 logger.debug("publishing:\n%r" % (log_datum, ))
+                if log_datum.get_dict_representation() is None:
+                    logger.warning("log_datum is invalid, skip it")
+                    continue
                 publish_socket.send(str(log_datum))
 
                 # !!AI hacks

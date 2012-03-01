@@ -265,7 +265,7 @@ if __name__ == "__main__":
     publish_socket = context.socket(zmq.PUB)
     publish_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
-    
+
     poller = zmq.Poller()
     poller.register(subscription_socket, zmq.POLLIN)
     poll_interval = 1000
@@ -303,6 +303,9 @@ if __name__ == "__main__":
             (log_data, full_lines) = get_log_data_and_excess_lines(full_lines)
             for log_datum in log_data:
                 logger.debug("publishing:\n%r" % (log_datum, ))
+                if log_datum.get_dict_representation() is None:
+                    logger.warning("log datum is none, skip it.")
+                    continue
                 publish_socket.send(str(log_datum))
             # ----------------------------------------------------------------
     except KeyboardInterrupt:
