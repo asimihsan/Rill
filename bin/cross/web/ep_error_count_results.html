@@ -8,14 +8,17 @@
     <li><a href="#warning">Warnings</a></li>
     <li><a href="#raw_logs">Raw logs from</a>
         <ul>
-            {% for (collection_name, collection_lines) in log_data %}
-            <li><a href="#{{ collection_name }}">{{ collection_name }}</a></li>
-            {% endfor %}
+            {% if log_data|length != 0 %}
+                {% for (collection_name, collection_lines) in log_data %}
+                <li><a href="#{{ collection_name }}">{{ collection_name }}</a></li>
+                {% endfor %}
+            {% endif %}
         </ul>
     </li>
 </ul>
 
 <h3 id="errors">Errors</h3>
+<p>Total errors: {{ total_errors }}.</p>
 <p>
     <table class="table table-condensed">
         <thead>
@@ -36,6 +39,7 @@
 </p>
 
 <h3 id="warnings">Warnings</h3>
+<p>Total warnings: {{ total_warnings }}.</p>
 <p>
     <table class="table table-condensed">
         <thead>
@@ -55,17 +59,20 @@
     </table>
 </p>
 
-<h3 id="raw_logs">Raw logs</h3>
-{% for (collection_name, collection_lines) in log_data %}
-    <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
-    <p>
-        <table class="table table-condensed">
-            <tbody>
-                {% for line in collection_lines %}
-                <tr><td>{{ line["contents"] }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </p>
-{% endfor %}
+{% if log_data|length != 0 %}
+    <h3 id="raw_logs">Raw logs</h3>
+    {% for (collection_name, collection_lines) in log_data %}
+        <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
+        <p>
+            <table class="table table-condensed">
+                <tbody>
+                    {% for line in collection_lines %}
+                    <tr><td>{{ line["contents"] }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </p>
+        {% endfor %}
+{% endif %}
+
 {% include 'fragment_bottom.html' %}

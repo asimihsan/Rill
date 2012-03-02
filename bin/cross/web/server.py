@@ -9,6 +9,8 @@ import database
 import pprint
 from whoosh.analysis import StandardAnalyzer
 import operator
+import bson
+import datetime
 
 # ----------------------------------------------------------------------------
 #   Constants.
@@ -70,37 +72,52 @@ def ep_error_count():
     datetime_interval_obj = getattr(db, datetime_interval)
     log_type = "ngmg_ep"
     collection_names = sorted(db.get_collection_names(name_filter = log_type))
-    log_data = []
-    for collection_name in collection_names:
-        collection = db.get_collection(collection_name)
-        cursor = db.get_ep_warnings_and_errors(collection = collection,
-                                               datetime_interval = datetime_interval_obj)
-        results = [elem for elem in cursor]
-        log_data.append((collection_name, results))
     # ------------------------------------------------------------------------
 
+    # ------------------------------------------------------------------------
+    #   Using group() get a count of each error_id.
+    # ------------------------------------------------------------------------
     summarized_error_data = {}
     summarized_warning_data = {}
-    for (collection_name, results) in log_data:
-        collection_results = {}
-        for result in results:
-            error_id = result["error_id"]
-            if result["error_level"] == "warning":
-                summarized_warning_data[error_id] = summarized_warning_data.get(error_id, 0) + 1
-            elif result["error_level"] == "error":
-                summarized_error_data[error_id] = summarized_error_data.get(error_id, 0) + 1
+    start_datetime = datetime.datetime.utcnow() - datetime_interval_obj
+    for (data_obj, key_name) in [(summarized_error_data, "error"),
+                                 (summarized_warning_data, "warning")]:
+        print "ep count for type: %s" % (key_name, )
+        q_key = {"error_id": True}
+        q_condition = {"error_level": {"$in": [key_name]},
+                       "error_id": {"$exists": True},
+                       "datetime": {"$gt": start_datetime}}
+        q_initial = {"count": 0}
+        q_reduce = bson.Code("""function(document, aggregator)
+                                {
+                                    aggregator.count += 1;
+                                }""")
+        for collection_name in collection_names:
+            print "collection_name: %s" % (collection_name, )
+            collection = db.get_collection(collection_name)
+            result = collection.group(key = q_key,
+                                      condition = q_condition,
+                                      initial = q_initial,
+                                      reduce = q_reduce)
+            for elem in result:
+                key = elem["error_id"]
+                value = int(elem["count"])
+                data_obj[key] = data_obj.get(key, 0) + value
 
     sorted_warning_data = summarized_warning_data.items()
     sorted_warning_data.sort(key=operator.itemgetter(1), reverse=True)
     sorted_error_data = summarized_error_data.items()
     sorted_error_data.sort(key=operator.itemgetter(1), reverse=True)
+    total_warnings = sum(elem[1] for elem in sorted_warning_data)
+    total_errors = sum(elem[1] for elem in sorted_error_data)
+    # ------------------------------------------------------------------------
 
-    pprint.pprint(sorted_warning_data)
-    pprint.pprint(sorted_error_data)
     return bottle.jinja2_template("ep_error_count_results.html",
-                                  log_data = log_data,
+                                  log_data = [],
                                   sorted_warning_data = sorted_warning_data,
+                                  total_warnings = total_warnings,
                                   sorted_error_data = sorted_error_data,
+                                  total_errors = total_errors,
                                   datetime_interval = datetime_interval)
 
 @bottle.route('/full_text_search')
@@ -167,7 +184,7 @@ def server_js_static(filepath):
     return bottle.static_file(filepath, root=JS_PATH)
 # ----------------------------------------------------------------------------
 
-bottle.run(server='tornado')
+#bottle.run(server='tornado')
 
 bottle.debug(True)
 bottle.run(host="0.0.0.0",
