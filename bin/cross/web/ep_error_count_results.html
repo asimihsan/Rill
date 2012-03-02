@@ -6,15 +6,15 @@
 <ul>
     <li><a href="#errors">Errors</a></li>
     <li><a href="#warning">Warnings</a></li>
+    {% if log_data|length != 0 %}
     <li><a href="#raw_logs">Raw logs from</a>
         <ul>
-            {% if log_data|length != 0 %}
                 {% for (collection_name, collection_lines) in log_data %}
                 <li><a href="#{{ collection_name }}">{{ collection_name }}</a></li>
                 {% endfor %}
-            {% endif %}
         </ul>
     </li>
+    {% endif %}
 </ul>
 
 <h3 id="errors">Errors</h3>
@@ -25,13 +25,15 @@
             <tr>
                 <th>Count</th>
                 <th>Log ID</th>
+                <th>Example</th>
             </tr>
         </thead>
         <tbody>
-            {% for (log_id, log_count) in sorted_error_data %}
+            {% for (log_id, log_count, log_example) in sorted_error_data %}
             <tr>
                 <td>{{ log_count }}</td>
-                <td>{{ log_id }}</td>
+                <td class="mono">{{ log_id }}</td>
+                <td class="mono">{{ log_example }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -46,13 +48,15 @@
             <tr>
                 <th>Count</th>
                 <th>Log ID</th>
+                <th>Example</th>
             </tr>
         </thead>
         <tbody>
-            {% for (log_id, log_count) in sorted_warning_data %}
+            {% for (log_id, log_count, log_example) in sorted_warning_data %}
             <tr>
                 <td>{{ log_count }}</td>
-                <td>{{ log_id }}</td>
+                <td class="mono">{{ log_id }}</td>
+                <td class="mono">{{ log_example }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -65,7 +69,7 @@
         <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
         <p>
             <table class="table table-condensed">
-                <tbody>
+                <tbody class="mono">
                     {% for line in collection_lines %}
                     <tr><td>{{ line["contents"] }}</td></tr>
                     {% endfor %}

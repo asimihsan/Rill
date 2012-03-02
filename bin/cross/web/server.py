@@ -77,6 +77,7 @@ def ep_error_count():
     # ------------------------------------------------------------------------
     #   Using group() get a count of each error_id.
     # ------------------------------------------------------------------------
+    error_id_to_collection = {}
     summarized_error_data = {}
     summarized_warning_data = {}
     start_datetime = datetime.datetime.utcnow() - datetime_interval_obj
@@ -104,12 +105,32 @@ def ep_error_count():
                 value = int(elem["count"])
                 data_obj[key] = data_obj.get(key, 0) + value
 
+                # While we're here stash which collection this error_id
+                # shows up in so we can come back later and get an example.
+                if key not in error_id_to_collection:
+                    error_id_to_collection[key] = collection
+
     sorted_warning_data = summarized_warning_data.items()
     sorted_warning_data.sort(key=operator.itemgetter(1), reverse=True)
     sorted_error_data = summarized_error_data.items()
     sorted_error_data.sort(key=operator.itemgetter(1), reverse=True)
     total_warnings = sum(elem[1] for elem in sorted_warning_data)
     total_errors = sum(elem[1] for elem in sorted_error_data)
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   Go back and find one example of each error_id, any will do.
+    # ------------------------------------------------------------------------
+    for sorted_data in (sorted_warning_data, sorted_error_data):
+        for (i, datum) in enumerate(sorted_data):
+            (error_id, count) = datum
+            example = ""
+            if error_id in error_id_to_collection:
+                collection = error_id_to_collection[error_id]
+                example_result = collection.find_one({"error_id": error_id})
+                contents = example_result["contents"]
+                example = contents.partition("[%s]" % (error_id, ))[-1].strip()
+            sorted_data[i] = (error_id, count, example)
     # ------------------------------------------------------------------------
 
     return bottle.jinja2_template("ep_error_count_results.html",
