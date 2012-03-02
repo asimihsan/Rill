@@ -1,6 +1,7 @@
 
 import datetime
 import pymongo
+import pymongo.master_slave_connection
 
 import time
 import functools
@@ -8,7 +9,9 @@ import functools
 # -----------------------------------------------------------------------------
 #   Database constants.
 # -----------------------------------------------------------------------------
-hostnames = ["magpie", "mink", "rabbit", "rat"]
+master = "magpie"
+slaves = ["mink", "rabbit", "rat"]
+hostnames = [master] + slaves
 # -----------------------------------------------------------------------------
 
 class Database(object):
@@ -28,7 +31,13 @@ class Database(object):
     def __init__(self, database_name=None):
         if not database_name:
             database_name = "logs"
-        self.connection = pymongo.Connection(hostnames)
+        self.master_connection = pymongo.Connection(master)
+        self.slave_connections = [pymongo.Connection(hostname) for hostname in slaves]
+        for connection in self.slave_connections:
+            connection.read_preference = pymongo.ReadPreference.SECONDARY
+        self.connection = pymongo.master_slave_connection.MasterSlaveConnection(self.master_connection,
+                                                                                self.slave_connections)
+        #self.connection = pymongo.Connection(hostnames)
         self.database = self.connection[database_name]
 
     def get_collection(self, collection_name):
