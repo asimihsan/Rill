@@ -29,10 +29,10 @@
             </tr>
         </thead>
         <tbody>
-            {% for (log_id, log_count, log_example) in sorted_error_data %}
+            {% for (log_id, log_count, log_example, error_id_instances_link) in sorted_error_data %}
             <tr>
                 <td>{{ log_count }}</td>
-                <td class="mono">{{ log_id }}</td>
+                <td class="mono"><a href="{{ error_id_instances_link }}">{{ log_id }}</a></td>
                 <td class="mono">{{ log_example }}</td>
             </tr>
             {% endfor %}
@@ -52,10 +52,10 @@
             </tr>
         </thead>
         <tbody>
-            {% for (log_id, log_count, log_example) in sorted_warning_data %}
+            {% for (log_id, log_count, log_example, error_id_instances_link) in sorted_warning_data %}
             <tr>
                 <td>{{ log_count }}</td>
-                <td class="mono">{{ log_id }}</td>
+                <td class="mono"><a href="{{ error_id_instances_link }}">{{ log_id }}</a></td>
                 <td class="mono">{{ log_example }}</td>
             </tr>
             {% endfor %}
