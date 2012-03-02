@@ -26,7 +26,7 @@ class Database(object):
 
     ngmg_shm_messages_collection_filter = "ngmg_shm_messages"
     ngmg_messages_collection_filter = "ngmg_messages"
-    ngmgm_ep_collection_filter = "ngmg_ep"
+    ngmg_ep_collection_filter = "ngmg_ep"
 
     def __init__(self, database_name=None):
         if not database_name:
@@ -53,6 +53,34 @@ class Database(object):
 
     def get_ngmg_shm_messages_collections(self):
         return self.get_collection_names(name_filter = self.ngmg_shm_messages_collection_filter)
+
+    def get_ngmg_ep_collections(self):
+        collection_names = self.get_collection_names(name_filter = self.ngmg_ep_collection_filter)
+        collections = [self.get_collection(name) for name in collection_names]
+        return collections
+
+    def get_ep_error_instances(self,
+                               error_id,
+                               datetime_interval = None,
+                               fields_to_return = ['contents'],
+                               fields_to_ignore = ['_id']):
+        collections = self.get_ngmg_ep_collections()
+        results = []
+        for collection in collections:
+            query_part = {'error_id': error_id}
+            if not datetime_interval:
+                datetime_interval = self.one_day
+            start_datetime = datetime.datetime.utcnow() - datetime_interval
+            query_part["datetime"] = {"$gt": start_datetime}
+            if fields_to_return:
+                filter_part = dict([(field, 1) for field in fields_to_return])
+            if fields_to_ignore:
+                sub_filter = dict([(field, 0) for field in fields_to_ignore])
+                filter_part.update(sub_filter)
+            results_cursor = collection.find(query_part, filter_part)
+            results_cursor_sorted = results_cursor.sort("datetime", -1)
+            results.append((collection, results_cursor_sorted))
+        return results
 
     def get_ep_warnings_and_errors(self,
                                    collection,

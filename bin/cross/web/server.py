@@ -11,6 +11,8 @@ from whoosh.analysis import StandardAnalyzer
 import operator
 import bson
 import datetime
+import base64
+import operator
 
 # ----------------------------------------------------------------------------
 #   Constants.
@@ -50,6 +52,23 @@ def shm_split_brain():
         log_data.append((collection, results))
     return bottle.jinja2_template("shm_split_brain.html",
                                   log_data=log_data)
+
+@bottle.route('/ep_error_instances')
+def ep_error_instances():
+    # ------------------------------------------------------------------------
+    #   Validate inputs.
+    # ------------------------------------------------------------------------
+    error_id = bottle.request.query.error_id
+    assert(error_id)
+    assert(len(error_id) != 0)
+    error_id_decoded = base64.urlsafe_b64decode(str(error_id))
+    # ------------------------------------------------------------------------
+
+    collections_and_cursors = db.get_ep_error_instances(error_id = error_id_decoded)
+    collections_and_cursors.sort(key=operator.itemgetter(0))
+    return bottle.jinja2_template("ep_error_instances.html",
+                                  error_id = error_id_decoded,
+                                  collections_and_cursors = collections_and_cursors)
 
 @bottle.route('/ep_error_count')
 def ep_error_count():
@@ -130,7 +149,8 @@ def ep_error_count():
                 example_result = collection.find_one({"error_id": error_id})
                 contents = example_result["contents"]
                 example = contents.partition("[%s]" % (error_id, ))[-1].strip()
-            sorted_data[i] = (error_id, count, example)
+            error_id_instances_link = r'/ep_error_instances?error_id=%s' % (base64.urlsafe_b64encode(error_id), )
+            sorted_data[i] = (error_id, count, example, error_id_instances_link)
     # ------------------------------------------------------------------------
 
     return bottle.jinja2_template("ep_error_count_results.html",
