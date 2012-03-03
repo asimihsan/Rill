@@ -1,5 +1,8 @@
 #!/usr/bin/env python2.7
 
+from gevent import monkey; monkey.patch_all()
+
+import time
 import os
 import sys
 import bottle
@@ -27,6 +30,7 @@ IMG_PATH = os.path.join(ROOT_PATH, "img")
 #   Templates.
 # ----------------------------------------------------------------------------
 import jinja2
+jinja2_env = jinja2.Environment(loader = jinja2.FileSystemLoader(ROOT_PATH))
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
@@ -46,12 +50,11 @@ def shm_split_brain():
     collection_objects = [db.get_collection(collection) for collection in collections]
     split_brain_log_cursors = [db.get_shm_split_brain_logs(collection, datetime_interval=db.one_day)
                                for collection in collection_objects]
-    log_data = []
-    for (collection, split_brain_log_cursor) in zip(collections, split_brain_log_cursors):
-        results = [elem for elem in split_brain_log_cursor]
-        log_data.append((collection, results))
-    return bottle.jinja2_template("shm_split_brain.html",
-                                  log_data=log_data)
+    log_data = zip(collections, split_brain_log_cursors)
+    template = jinja2_env.get_template('shm_split_brain.html')
+    stream = template.stream(log_data = log_data)
+    for chunk in stream:
+        yield chunk
 
 @bottle.route('/ep_error_instances')
 def ep_error_instances():
@@ -66,9 +69,11 @@ def ep_error_instances():
 
     collections_and_cursors = db.get_ep_error_instances(error_id = error_id_decoded)
     collections_and_cursors.sort(key=operator.itemgetter(0))
-    return bottle.jinja2_template("ep_error_instances.html",
-                                  error_id = error_id_decoded,
-                                  collections_and_cursors = collections_and_cursors)
+    template = jinja2_env.get_template('ep_error_instances.html')
+    stream = template.stream(error_id = error_id_decoded,
+                             collections_and_cursors = collections_and_cursors)
+    for chunk in stream:
+        yield chunk
 
 @bottle.route('/ep_error_count')
 def ep_error_count():
@@ -201,10 +206,13 @@ def full_text_search_results():
         cursor = db.get_full_text_search_of_logs(collection = collection,
                                                  search_argument = tokens,
                                                  datetime_interval = datetime_interval_obj)
-        results = [elem for elem in cursor]
-        log_data.append((collection_name, results))
-    return bottle.jinja2_template("full_text_search_results.html",
-                                  log_data = log_data)
+        log_data.append((collection_name, cursor))
+
+    template = jinja2_env.get_template('full_text_search_results.html')
+    stream = template.stream(log_data = log_data)
+    for chunk in stream:
+        yield chunk
+
 # ----------------------------------------------------------------------------
 #   Static files.
 # ----------------------------------------------------------------------------
@@ -225,11 +233,10 @@ def server_js_static(filepath):
     return bottle.static_file(filepath, root=JS_PATH)
 # ----------------------------------------------------------------------------
 
-#bottle.run(server='tornado')
-
 bottle.debug(True)
 bottle.run(host="0.0.0.0",
            port=8080,
            reloader=True,
-           interval=0.5)
+           interval=0.5,
+           server='gevent')
 
