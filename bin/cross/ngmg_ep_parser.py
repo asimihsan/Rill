@@ -143,7 +143,7 @@ class LogDatum(object):
         return_value["log_id"] = log_id
         return_value["component_id"] = component_id
 
-        # For ep.log two starts is error, one start is warning, when prepended to component.
+        # For ep.log two stars is error, one start is warning, when prepended to component.
         if logger_id_with_stars.startswith("**"):
             error_level = "error"
         elif logger_id_with_stars.startswith("*"):
@@ -317,6 +317,7 @@ if __name__ == "__main__":
         db.create_index(collection_name, "datetime")
         db.create_index(collection_name, "keywords")
         db.create_index(collection_name, "error_level")
+        db.create_index(collection_name, "error_id")
     try:
         while 1:
             #socks = dict(poller.poll(poll_interval))
