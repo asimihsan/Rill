@@ -18,6 +18,41 @@ import base64
 import operator
 
 # ----------------------------------------------------------------------------
+#   Logging.
+# ----------------------------------------------------------------------------
+import logging
+import logging.handlers
+import platform
+APP_NAME = "rill_web_server"
+if platform.system() == "Windows":
+    LOG_FILENAME = r"I:\logs\%s.log" % (APP_NAME, )
+    ACCESS_LOG_FILENAME = r"I:\logs\%s_access.log" % (APP_NAME, )
+else:
+    LOG_FILENAME = r"/var/log/%s.log" % (APP_NAME, )
+    ACCESS_LOG_FILENAME = r"/var/log/%s_access.log" % (APP_NAME, )
+logger = logging.getLogger(APP_NAME)
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+ch2 = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=10*1024*1024, backupCount=10)
+ch2.setFormatter(formatter)
+logger.addHandler(ch2)
+
+logger = logging.getLogger(APP_NAME)
+
+access_logger = logging.getLogger("%s_access" % (APP_NAME, ))
+access_logger.setLevel(logging.DEBUG)
+ch3 = logging.handlers.RotatingFileHandler(ACCESS_LOG_FILENAME, maxBytes=10*1024*1024, backupCount=10)
+ch3.setFormatter(formatter)
+ch3.setLevel(logging.DEBUG)
+access_logger.addHandler(ch3)
+# ----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
 #   Constants.
 # ----------------------------------------------------------------------------
 ROOT_PATH = os.path.abspath(os.path.join(__file__, os.pardir))
@@ -41,11 +76,21 @@ db = database.Database()
 
 @bottle.route('/')
 def index():
+    logger = logging.getLogger("%s.index" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("index:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
     data = {}
-    return bottle.jinja2_template("index.html", data=data)
+    template = jinja2_env.get_template('index.html')
+    stream = template.stream()
+    for chunk in stream:
+        yield chunk
 
 @bottle.route('/shm_split_brain')
 def shm_split_brain():
+    logger = logging.getLogger("%s.shm_split_brain" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("shm_split_brain:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
     collections = sorted(db.get_ngmg_shm_messages_collections())
     collection_objects = [db.get_collection(collection) for collection in collections]
     split_brain_log_cursors = [db.get_shm_split_brain_logs(collection, datetime_interval=db.one_day)
@@ -58,6 +103,10 @@ def shm_split_brain():
 
 @bottle.route('/ep_error_instances')
 def ep_error_instances():
+    logger = logging.getLogger("%s.ep_error_instances" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("ep_error_instances:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
@@ -77,10 +126,21 @@ def ep_error_instances():
 
 @bottle.route('/ep_error_count')
 def ep_error_count():
-    return bottle.jinja2_template("ep_error_count.html")
+    logger = logging.getLogger("%s.ep_error_count" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("ep_error_count:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    template = jinja2_env.get_template('ep_error_count.html')
+    stream = template.stream()
+    for chunk in stream:
+        yield chunk
 
 @bottle.route('/ep_error_count', method='POST')
 def ep_error_count():
+    logger = logging.getLogger("%s.ep_error_count_post" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("ep_error_count_post:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
@@ -107,7 +167,7 @@ def ep_error_count():
     start_datetime = datetime.datetime.utcnow() - datetime_interval_obj
     for (data_obj, key_name) in [(summarized_error_data, "error"),
                                  (summarized_warning_data, "warning")]:
-        print "ep count for type: %s" % (key_name, )
+        logger.debug("ep count for type: %s" % (key_name, ))
         q_key = {"error_id": True}
         q_condition = {"error_level": {"$in": [key_name]},
                        "error_id": {"$exists": True},
@@ -118,7 +178,7 @@ def ep_error_count():
                                     aggregator.count += 1;
                                 }""")
         for collection_name in collection_names:
-            print "collection_name: %s" % (collection_name, )
+            logger.debug("collection_name: %s" % (collection_name, ))
             collection = db.get_collection(collection_name)
             result = collection.group(key = q_key,
                                       condition = q_condition,
@@ -158,21 +218,31 @@ def ep_error_count():
             sorted_data[i] = (error_id, count, example, error_id_instances_link)
     # ------------------------------------------------------------------------
 
-    return bottle.jinja2_template("ep_error_count_results.html",
-                                  log_data = [],
-                                  sorted_warning_data = sorted_warning_data,
-                                  total_warnings = total_warnings,
-                                  sorted_error_data = sorted_error_data,
-                                  total_errors = total_errors,
-                                  datetime_interval = datetime_interval)
+    template = jinja2_env.get_template('ep_error_count_results.html')
+    stream = template.stream(log_data = [],
+                             sorted_warning_data = sorted_warning_data,
+                             total_warnings = total_warnings,
+                             sorted_error_data = sorted_error_data,
+                             total_errors = total_errors,
+                             datetime_interval = datetime_interval)
+    for chunk in stream:
+        yield chunk
 
 @bottle.route('/full_text_search')
 def full_text_search():
-    data = {}
-    return bottle.jinja2_template("full_text_search.html", data=data)
+    logger = logging.getLogger("%s.full_text_search" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("full_text_search:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+    template = jinja2_env.get_template('full_text_search.html')
+    stream = template.stream()
+    for chunk in stream:
+        yield chunk
 
 @bottle.route('/full_text_search', method='POST')
 def full_text_search_results():
+    logger = logging.getLogger("%s.full_text_search_results" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("full_text_search_results:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
@@ -195,7 +265,7 @@ def full_text_search_results():
     for elem in analyzer(unicode(search_string)):
         tokens.append(elem.text)
     tokens = list(set(tokens))
-    print "search_string: %s, log_type: %s, datetime_interval: %s, tokens: %s" % (search_string, log_type, datetime_interval, tokens)
+    logger.debug("search_string: %s, log_type: %s, datetime_interval: %s, tokens: %s" % (search_string, log_type, datetime_interval, tokens))
     # ------------------------------------------------------------------------
 
     datetime_interval_obj = getattr(db, datetime_interval)
