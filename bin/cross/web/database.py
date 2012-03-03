@@ -2,6 +2,7 @@
 import datetime
 import pymongo
 import pymongo.master_slave_connection
+import re
 
 import time
 import functools
@@ -18,6 +19,7 @@ class Database(object):
     one_year = datetime.timedelta(days=365)
     one_week = datetime.timedelta(days=7)
     one_day = datetime.timedelta(days=1)
+    three_days = datetime.timedelta(days=3)
     six_hours = datetime.timedelta(hours=6)
     one_hour = datetime.timedelta(hours=1)
     fifteen_minutes = datetime.timedelta(minutes=15)
@@ -134,6 +136,42 @@ class Database(object):
                                                  datetime_interval,
                                                  fields_to_return,
                                                  fields_to_ignore)
+
+    def get_shm_memory_data(self,
+                            collection,
+                            datetime_interval = None):
+        # Mar 3 15:11:36 emer_mf106-wrlinux daemon.alert SYSSTAT(memMonitor)[15381]: Memory check OK; free memory: 143676 kB (56%)
+        search_argument = ['memmonitor', 'free', 'memory']
+        if not datetime_interval:
+            datetime_interval = self.three_days
+        full_text_cursor = self.get_full_text_search_of_logs(collection = collection,
+                                                             search_argument = search_argument,
+                                                             datetime_interval = datetime_interval,
+                                                             fields_to_return = ['contents'],
+                                                             fields_to_ignore = ['_id'])
+        results = []
+        datetime_format = "%Y %b %d %H:%M:%S"
+        re_expr = "(?P<month>\S+)\s+(?P<day>\d+)\s+(?P<time>\d+:\d+:\d+).*\((?P<percent_free>\d+)%\)"
+        re_obj = re.compile(re_expr)
+        for row in full_text_cursor:
+            contents = row["contents"]
+            m = re_obj.search(contents)
+            if not m:
+                continue
+            in_year = str(datetime.datetime.utcnow().year)
+            in_month = m.groupdict()["month"]
+            in_day = m.groupdict()["day"]
+            in_time = m.groupdict()["time"]
+            full_datetime = " ".join([in_year, in_month, in_day, in_time])
+            try:
+                datetime_obj = datetime.datetime.strptime(full_datetime, datetime_format)
+            except ValueError:
+                continue
+
+            datetime_epoch_milli = int(time.mktime(datetime_obj.timetuple())) * 1000
+            percent_free = int(m.groupdict()["percent_free"])
+            results.append((datetime_epoch_milli, percent_free))
+        return results
 
     def get_all_items_from_collection_newer_than(self,
                                                  collection_name,

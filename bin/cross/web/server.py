@@ -101,6 +101,31 @@ def shm_split_brain():
     for chunk in stream:
         yield chunk
 
+@bottle.route('/shm_memory_charts')
+def shm_memory_charts():
+    logger = logging.getLogger("%s.shm_memory_charts" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("shm_memory_charts:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    collections = sorted(db.get_ngmg_shm_messages_collections())
+    friendly_collection_names = [elem.partition(db.ngmg_shm_messages_collection_filter)[0].strip("_").replace(".", "_")
+                                 for elem in collections]
+    collection_objects = [db.get_collection(collection) for collection in collections]
+    memory_data = []
+    for collection in collection_objects:
+        memory_datum = db.get_shm_memory_data(collection)
+        memory_datum.reverse()
+        # var d2 = [[0, 3], [4, 8], [8, 5], [9, 13]];
+        elems1 = ["[%s, %s]" % (epoch, percent_free) for (epoch, percent_free) in memory_datum]
+        elems2 = ", ".join(elems1)
+        memory_datum_js_string = "[%s]" % (elems2, )
+        memory_data.append(memory_datum_js_string)
+    log_data = zip(collections, friendly_collection_names, memory_data)
+    template = jinja2_env.get_template('shm_memory_charts.html')
+    stream = template.stream(log_data = log_data)
+    for chunk in stream:
+        yield chunk
+
 @bottle.route('/ep_error_instances')
 def ep_error_instances():
     logger = logging.getLogger("%s.ep_error_instances" % (APP_NAME, ))
@@ -289,6 +314,10 @@ def full_text_search_results():
 @bottle.route('/favicon.ico')
 def server_static():
     return bottle.static_file('favicon.ico', root=ROOT_PATH)
+
+@bottle.route('/humans.txt')
+def server_static():
+    return bottle.static_file('humans.txt', root=ROOT_PATH)
 
 @bottle.route('/css/<filename>')
 def server_css_static(filename):
