@@ -1,0 +1,40 @@
+{% include 'fragment_top.html' %}
+
+<h2>ShM memory charts.</h2>
+<ul>
+    {% for (collection_name, friendly_collection_name, memory_data_js_string) in log_data %}
+    <li><a href="#{{ collection_name }}">{{ collection_name }}</a></li>
+    {% endfor %}
+</ul>
+
+{% for (collection_name, friendly_collection_name, memory_data_js_string) in log_data %}
+    <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
+    <div id="{{ friendly_collection_name }}_chart" style="width:700px;height:433px;"></div>
+    <script type="text/javascript">
+        $(document).ready(function() {
+            var options = {
+                series: {
+                    lines: { show: true, lineWidth: 2 },
+                    points: { show: true }
+                    },
+                grid: {
+                    hoverable: true,
+                    clickable: false,
+                    borderWidth: 1
+                },
+                xaxis: {
+                    mode: "time",
+                    timeformat: "%H:%M %d/%m/%y",
+                    minTickSize: [1, "hour"]
+                }
+            };
+            var d1 = {{ memory_data_js_string }};
+                                
+            $.plot($("#{{ friendly_collection_name }}_chart"),
+                   [ d1 ],
+                   options);
+        });
+    </script>
+{% endfor %}
+
+{% include 'fragment_bottom.html' %}
