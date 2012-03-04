@@ -19,7 +19,7 @@ Non-functional requirements:
 BUGS
 ----
 
--   On file rotation if we use a version of tail that does not support the '--follow=name' flag we will fail to pick up the new log contents. Fix is to start a total of three libssh2 sessions for a given tap that requires tailing
+-   On file rotation if we use a version of tail that does not support the '--follow=name' flag (Solaris, BusyBox Linux) we will fail to pick up the new log contents. Fix is to start a total of three libssh2 sessions for a given tap that requires tailing
     -   The first is the regular tail.
     -   The second is an empty session, doing nothing and twiddling its thumbs.
     -   The third is an infinite while [[ 1 ]] sleep 1 that uses 'ls -i' to get the inode number of the file. If it changes:
@@ -29,6 +29,8 @@ BUGS
     Of course you could avoid this by using a real version of tail, but BusyBox doesn't have one.
 
 -   parsers stop reading in output from ssh_tap via SUBSCRIBE after a while. Why? ssh_tap says it's PUBLISHing it. Does this happen when ssh_tap restarts? Does ZeroMQ SUBSCRIBE just stop working? It's a blocking recv() call...maybe we should restart the parser instance when ssh_tap is restarted?
+
+-   If an ssh_tap is outputting so much data that a parser subscriber cannot keep up, the ZeroMQ SUBSCRIBE binding, by default, keeps all pending messages in memory. This leads to memory increasing indefinitely. Want to adjust the SUBSCRIBE binding to have a finite high water mark and either keep them in swap memory or discard messages.
 
 TODO
 ----
