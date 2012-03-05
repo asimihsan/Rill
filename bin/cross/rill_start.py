@@ -450,9 +450,9 @@ def main(verbose):
                     command += " --verbose"
 
                 commands.append((command, host, parser_name, parser_zeromq_bind))
-                ssh_tap_port += 1
-                parser_port += 1
-                results_port += 1
+                ssh_tap_port += 5
+                parser_port += 5
+                results_port += 5
 
         logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))
         for (command, host, parser_name, results_zeromq_bind) in commands:
