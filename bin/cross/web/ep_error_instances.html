@@ -5,21 +5,25 @@
 
 <ul>
     {% for (collection, cursor) in collections_and_cursors %}
-    <li><a href="#{{ collection.name }}">{{ collection.name }}</a></li>
+        {% if cursor.count() != 0 %}
+            <li><a href="#{{ collection.name }}">{{ collection.name }}</a></li>
+        {% endif %}
     {% endfor %}
 </ul>
 
 {% for (collection, cursor) in collections_and_cursors %}
-<h3 id="{{ collection.name }}">{{ collection.name }}</h3>
-<p>
-    <table class="table table-condensed">
-        <tbody class="mono">
-            {% for row in cursor %}
-            <tr><td>{{ row["contents"] }}</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</p>
+    {% if cursor.count() != 0 %}
+    <!-- <h3 id="{{ collection.name }}">{{ collection.name }}</h3> -->
+    <p id="{{ collection.name }}">
+        <table class="table table-condensed">
+            <tbody class="mono">
+                {% for row in cursor %}
+                <tr><td>{{ row["contents"] }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </p>
+    {% endif %}
 {% endfor %}
 
 {% include 'fragment_bottom.html' %}

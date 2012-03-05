@@ -71,7 +71,7 @@ class Database(object):
         for collection in collections:
             query_part = {'error_id': error_id}
             if not datetime_interval:
-                datetime_interval = self.one_day
+                datetime_interval = self.one_week
             start_datetime = datetime.datetime.utcnow() - datetime_interval
             query_part["datetime"] = {"$gt": start_datetime}
             if fields_to_return:
