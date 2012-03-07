@@ -8,6 +8,7 @@
     {% endfor %}
 </ul>
 {% for (collection_name, collection_lines) in log_data %}
+{% if collection_lines.count() > 0 %}
     <p>
         <table class="table table-condensed">
             <tbody class="mono">
@@ -17,6 +18,7 @@
             </tbody>
         </table>
     </p>
+{% endif %}
 {% endfor %}
 
 {% include 'fragment_bottom.html' %}
