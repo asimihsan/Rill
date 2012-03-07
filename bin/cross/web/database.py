@@ -110,7 +110,11 @@ class Database(object):
                                      search_argument,
                                      datetime_interval = None,
                                      fields_to_return = ["contents"],
-                                     fields_to_ignore = ["_id"]):
+                                     fields_to_ignore = ["_id"],
+                                     query_argument = None):
+        #if query_argument:
+            #sub_queries = "{'keywords': {'$all': %s}}" % (elem, ) for elem in
+            #query_part = {'keywords': {'$and':
         query_part = {'keywords': {'$all': search_argument}}
         if not datetime_interval:
             datetime_interval = self.one_day
