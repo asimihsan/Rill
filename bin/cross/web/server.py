@@ -10,12 +10,17 @@ import jinja2
 import pymongo
 import database
 import pprint
+
 from whoosh.analysis import StandardAnalyzer
+from whoosh.qparser import QueryParser
+import whoosh.query
+
 import operator
 import bson
 import datetime
 import base64
 import operator
+import urllib
 
 # ----------------------------------------------------------------------------
 #   Logging.
@@ -263,23 +268,62 @@ def full_text_search():
     for chunk in stream:
         yield chunk
 
-@bottle.route('/full_text_search', method='POST')
+@bottle.route('/full_text_search_results')
 def full_text_search_results():
-    logger = logging.getLogger("%s.full_text_search_results" % (APP_NAME, ))
+    logger = logging.getLogger("%s.full_text_search_results_get" % (APP_NAME, ))
     logger.debug("entry.")
     access_logger.debug("full_text_search_results:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
+
     valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages"])
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
 
-    search_string = bottle.request.forms.get("search_string")
-    log_type = bottle.request.forms.get("log_type")
-    datetime_interval = bottle.request.forms.get("datetime_interval")
+    if len(bottle.request.forms.items()) == 0:
+        query_items = dict([elem.split("=", 1) for elem in urllib.unquote(bottle.request.query_string).split("&")])
+        logger.debug("GET has no query args, so let's get them ourselves. %s" % (query_items, ))
+        search_string_encoded = query_items["search_string"]
+        log_type_encoded = query_items["log_type"]
+        datetime_interval_encoded = query_items["datetime_interval"]
+    else:
+        logger.debug("GET has query items.")
+        search_string_encoded = str(bottle.request.forms.get("search_string"))
+        log_type_encoded = str(bottle.request.forms.get("log_type"))
+        datetime_interval_encoded = str(bottle.request.forms.get("datetime_interval"))
 
-    assert(log_type in valid_types)
-    assert(datetime_interval in valid_intervals)
+    logger.debug("search_string_encoded: %s" % (search_string_encoded, ))
+    logger.debug("log_type_encoded: %s" % (log_type_encoded, ))
+    logger.debug("datetime_interval_encoded: %s" % (datetime_interval_encoded, ))
+
+    search_string = base64.urlsafe_b64decode(str(search_string_encoded))
+    log_type = base64.urlsafe_b64decode(str(log_type_encoded))
+    datetime_interval = base64.urlsafe_b64decode(str(datetime_interval_encoded))
+
+    logger.debug("search_string: %s" % (search_string, ))
+    logger.debug("log_type: %s" % (log_type, ))
+    logger.debug("datetime_interval: %s" % (datetime_interval, ))
+
+    assert(log_type in valid_types), "%s not a valid log type from set: %s" % (log_type, valid_types)
+    assert(datetime_interval in valid_intervals), "%s not a valid datetime_interval from set: %s" % (datetime_interval, valid_intervals)
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   Parse the search string.
+    # ------------------------------------------------------------------------
+    parser = QueryParser("content", None)
+    query = parser.parse(search_string)
+    if type(query) == whoosh.query.Or:
+        logger.debug("query is OR type.")
+        query_string = [(elem[1], ) for elem in query.all_terms()]
+    elif type(query) == whoosh.query.And:
+        logger.debug("query is AND type.")
+        query_string = [tuple(elem[1] for elem in query.all_terms())]
+    else:
+        logger.debug("query is unknown type.")
+        query_string = [query.all_terms()]
+    logger.debug("query_string: %s" % (query_string, ))
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -300,13 +344,47 @@ def full_text_search_results():
         collection = db.get_collection(collection_name)
         cursor = db.get_full_text_search_of_logs(collection = collection,
                                                  search_argument = tokens,
-                                                 datetime_interval = datetime_interval_obj)
+                                                 datetime_interval = datetime_interval_obj,
+                                                 query_argument = query_string)
         log_data.append((collection_name, cursor))
 
     template = jinja2_env.get_template('full_text_search_results.html')
     stream = template.stream(log_data = log_data)
     for chunk in stream:
         yield chunk
+
+@bottle.route('/full_text_search_results', method='POST')
+def full_text_search_results():
+    logger = logging.getLogger("%s.full_text_search_results_post" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("full_text_search_results:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    # ------------------------------------------------------------------------
+    #   Validate inputs.
+    # ------------------------------------------------------------------------
+    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+
+    search_string = str(bottle.request.forms.get("search_string"))
+    log_type = str(bottle.request.forms.get("log_type"))
+    datetime_interval = str(bottle.request.forms.get("datetime_interval"))
+
+    assert(log_type in valid_types)
+    assert(datetime_interval in valid_intervals)
+    # ------------------------------------------------------------------------
+
+    search_string_encoded = base64.urlsafe_b64encode(search_string)
+    log_type_encoded = base64.urlsafe_b64encode(log_type)
+    datetime_interval_encoded = base64.urlsafe_b64encode(datetime_interval)
+    data = {"search_string": search_string_encoded,
+            "log_type": log_type_encoded,
+            "datetime_interval": datetime_interval_encoded}
+    logger.debug("data: %s" % (data, ))
+    data_items = ["=".join([key, value]) for (key, value) in data.items()]
+    data_addendum = "&".join(data_items)
+    redirect_destination = r"/full_text_search_results?%s" % (data_addendum, )
+    logger.debug("redirecting to: %s" % (redirect_destination, ))
+    bottle.redirect(redirect_destination)
 
 # ----------------------------------------------------------------------------
 #   Static files.

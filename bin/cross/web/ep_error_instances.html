@@ -6,7 +6,7 @@
 <ul>
     {% for (collection, cursor) in collections_and_cursors %}
         {% if cursor.count() != 0 %}
-            <li><a href="#{{ collection.name }}">{{ collection.name }}</a></li>
+        <li><a href="#{{ collection.name }}">{{ collection.name }}</a>, {{ cursor.count() }} time(s)</li>
         {% endif %}
     {% endfor %}
 </ul>
