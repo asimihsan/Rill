@@ -4,11 +4,10 @@
 <h2>Full text search results.</h2>
 <ul>
     {% for (collection_name, collection_lines) in log_data %}
-    <li><a href="#{{ collection_name }}">{{ collection_name }}</a></li>
+    <li><a href="#{{ collection_name }}">{{ collection_name }}</a>, {{ collection_lines.count() }} result(s).</li>
     {% endfor %}
 </ul>
 {% for (collection_name, collection_lines) in log_data %}
-    <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
     <p>
         <table class="table table-condensed">
             <tbody class="mono">
