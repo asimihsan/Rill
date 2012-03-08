@@ -36,6 +36,8 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
+import base_parser
+
 # ----------------------------------------------------------------------------
 #   Signal handling
 # ----------------------------------------------------------------------------
@@ -51,7 +53,7 @@ signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
 # Feb 26 23:41:29 emer_mf106-wrlinux daemon.notice SYSSTAT(MSMonitor30)[3488]: report status: success: STATUS_OK @MSMonitor30, code=253, severity=0
-class LogDatum(object):
+class NgmgShmMessagesParserLogDatum(object):
     def __init__(self, string_input):
         self.string_input = string_input
 
@@ -160,196 +162,13 @@ class LogDatum(object):
     def __str__(self):
         return "%s" % (self.get_dict_representation(), )
 
-def validate_command(command):
-    if "contents" not in command:
-        return False
-    return True
-
-re_line_breaks = re.compile("(\r\n|\n)", re.DOTALL)
-line_breaks = set(["\r\n", "\n"])
-def split_contents_and_return_excess(contents):
-    """ Given a block of text in contents split it into lines, and
-    return a two-element tuple (elem1, elem2).
-    -   elem1: list of strings for lines in the contents. If there
-        are no full lines return an empty list.
-    -   elem2: string of the excess, i.e. the last line.i
-
-    We want to strip out blank lines.
-
-    Examples below:
-
-    contents = ""
-    return ([], "")
-
-    contents = "12345"
-    return ([], "12345")
-
-    contents = "12345\r"
-    return ([], "12345\r")
-
-    contents = "12345\r\n"
-    return (["12345", ""])
-
-    contents = "12345\n"
-    return (["12345", ""])
-
-    contents = "12345\n123456\n123457"
-    return (["12345", "123456"], "1234567")
-
-    contents = "\r\n\r\n\r\n12345"
-    return ([], "12345")
-
-    """
-
-    logger = logging.getLogger("%s.split_contents_and_return_excess" % (APP_NAME, ))
-    elems = re_line_breaks.split(contents)
-    last_index = len(elems) - 1
-    non_line_break_elems = [(i, elem) for (i, elem) in enumerate(elems)
-                            if elem not in line_breaks]
-    full_lines = [elem for (i, elem) in non_line_break_elems
-                  if len(elem) != 0 and i != last_index]
-    trailing_excess = elems[-1]
-
-    return_value = (full_lines, trailing_excess)
-    logger.debug("returning : %s" % (return_value, ))
-    return return_value
-
-def get_log_data_and_excess_lines(full_lines):
-    """ Given a list of strings corresponding to full lines from log output
-    return a two-element tuple (elem1, elem2).
-    - elem1: a list of zero or more LogDatum objects that correspond to the
-    contents of the logs.
-    - elem2: a list of lines that constitute a partial log datum.
-
-    We will silently drop input that doesn't meet the spec of a log block."""
-
-    logger = logging.getLogger("%s.get_log_data_and_excess_lines" % (APP_NAME, ))
-    return_value = []
-    for line in full_lines:
-        log_datum = LogDatum(line)
-        return_value.append(log_datum)
-    return (return_value, [])
-
 if __name__ == "__main__":
     logger.debug("starting")
-
-    parser = argparse.ArgumentParser("Parse incoming ZeroMQ stream of logs, output in another ZeroMQ stream.")
-    parser.add_argument("--ssh_tap",
-                        dest="ssh_tap_zeromq_binding",
-                        metavar="ZEROMQ_BINDING",
-                        required=True,
-                        help="ZeroMQ binding we use for the ssh_tap instance.")
-    parser.add_argument("--results",
-                        dest="results_zeromq_binding",
-                        metavar="ZEROMQ_BINDING",
-                        required=True,
-                        help="ZeroMQ binding we PUBLISH our results to.")
-    parser.add_argument("--collection",
-                        dest="collection",
-                        metavar="NAME",
-                        default=None,
-                        help="MongoDB collection name")
-    parser.add_argument("--verbose",
-                        dest="verbose",
-                        action='store_true',
-                        default=False,
-                        help="Enable verbose debug mode.")
-    args = parser.parse_args()
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
-        logger.debug("Verbose logging enabled.")
-    logger = logging.getLogger("%s.%s" % (APP_NAME, args.collection))
-    context = zmq.Context(2)
-
-    # ------------------------------------------------------------------------
-    #   Subscribing to the raw ssh_tap from a server.
-    # ------------------------------------------------------------------------
-    logger.debug("Subscribing to ssh_tap at: %s" % (args.ssh_tap_zeromq_binding, ))
-    subscription_socket = context.socket(zmq.SUB)
-    subscription_socket.connect(args.ssh_tap_zeromq_binding)
-    subscription_socket.setsockopt(zmq.SUBSCRIBE, "")
-    # ------------------------------------------------------------------------
-
-    # ------------------------------------------------------------------------
-    #   Publishing JSON for parsed log data.
-    # ------------------------------------------------------------------------
-    logger.debug("Publishing parsed results at: %s" % (args.results_zeromq_binding, ))
-    publish_socket = context.socket(zmq.PUB)
-    publish_socket.connect(args.results_zeromq_binding)
-    # ------------------------------------------------------------------------
-
-    #poller = zmq.Poller()
-    #poller.register(subscription_socket, zmq.POLLIN)
-    #poll_interval = 1000
-
-    trailing_excess = ""
-    full_lines = []
-
-    # !!AI hacks
-    if args.collection:
-        db = database.Database()
-        collection_name = args.collection
-        collection = db.get_collection(collection_name)
-        db.create_index(collection_name, "datetime")
-        db.create_index(collection_name, "keywords")
+    fields_to_index = ["datetime", "keywords"]
     try:
-        while 1:
-            #socks = dict(poller.poll(poll_interval))
-            #if socks.get(subscription_socket, None) != zmq.POLLIN:
-            #    continue
-            incoming_string = subscription_socket.recv()
-            logger.debug("Update: '%s'" % (incoming_string, ))
-            try:
-                incoming_object = json.loads(incoming_string)
-            except:
-                logger.exception("Can't decode command:\n%s" % (incoming_string, ))
-                continue
-            if not validate_command(incoming_object):
-                logger.error("Not a valid command: \n%s" % (incoming_object))
-                continue
-            trailing_excess = ''.join([trailing_excess, incoming_object["contents"]])
-            (new_full_lines, trailing_excess) = split_contents_and_return_excess(trailing_excess)
-            full_lines.extend(new_full_lines)
-            logger.debug("full_lines:\n%s" % (pprint.pformat(full_lines), ))
-            logger.debug("trailing_excess:\n%s" % (trailing_excess, ))
-
-            # ----------------------------------------------------------------
-            # We now have lots of full lines and some trailing excess. Since a
-            # log datum may consist of more than one full line we perform a
-            # similar operation to above. We pass all the full lines to a
-            # function which will generate LogDatum object and return
-            # "trailing excess" full lines.
-            # ----------------------------------------------------------------
-            (log_data, full_lines) = get_log_data_and_excess_lines(full_lines)
-            for log_datum in log_data:
-                logger.debug("publishing:\n%r" % (log_datum, ))
-                if log_datum.get_dict_representation() is None:
-                    logger.warning("log_datum is invalid, skip it")
-                    continue
-                publish_socket.send(str(log_datum))
-
-                # !!AI hacks
-                # I can't figure out what I can't get thie data off the
-                # publish socket. So screw it, let's put it into the database
-                # right now.
-                if platform.system() == "Linux":
-                    logger.debug("!!AI hacks, just put it into the DB.")
-                    log_dict = log_datum.get_dict_representation()
-                    datetime_obj = datetime.datetime(int(log_dict["year"]),
-                                                     int(log_dict["month"]),
-                                                     int(log_dict["day"]),
-                                                     int(log_dict["hour"]),
-                                                     int(log_dict["minute"]),
-                                                     int(log_dict["second"]))
-                    contents = log_dict["contents"]
-                    keywords = log_dict["_keywords"]
-                    data_to_store = {"datetime": datetime_obj,
-                                     "contents": contents,
-                                     "keywords": keywords}
-                    collection.insert(data_to_store)
-            # ----------------------------------------------------------------
+        base_parser.main(APP_NAME, NgmgShmMessagesParserLogDatum, fields_to_index)
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
         logger.debug("exiting")
+
