@@ -7,7 +7,7 @@ production:             yes
 friendly name:          gemini2
 dns hostname:           gemini2
 username:               root
-password:               bootstrap
+password:               "!bootstrap"
 type:                   NGMG ShM
 log files:
     -   name:           messages
