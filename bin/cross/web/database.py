@@ -15,6 +15,9 @@ slaves = ["mink", "rabbit", "rat"]
 hostnames = [master] + slaves
 # -----------------------------------------------------------------------------
 
+import logging
+logger = logging.getLogger("rill_web_server.database")
+
 class Database(object):
     one_year = datetime.timedelta(days=365)
     one_week = datetime.timedelta(days=7)
@@ -29,6 +32,7 @@ class Database(object):
     ngmg_shm_messages_collection_filter = "ngmg_shm_messages"
     ngmg_messages_collection_filter = "ngmg_messages"
     ngmg_ep_collection_filter = "ngmg_ep"
+    ngmg_ms_messages_collection_filter = "ngmg_ms_messages"
 
     def __init__(self, database_name=None):
         if not database_name:
@@ -127,6 +131,12 @@ class Database(object):
             filter_part.update(sub_filter)
         results_cursor = collection.find(query_part, filter_part)
         results_cursor_sorted = results_cursor.sort("datetime", -1)
+
+        logger.debug("collection: %s" % (collection, ))
+        logger.debug("query_part: %s" % (query_part, ))
+        logger.debug("filter_part: %s" % (filter_part, ))
+        logger.debug("number of results: %s" % (results_cursor.count(), ))
+
         return results_cursor
 
     def get_shm_split_brain_logs(self,

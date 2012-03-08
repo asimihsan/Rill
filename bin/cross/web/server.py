@@ -278,7 +278,7 @@ def full_text_search_results():
     #   Validate inputs.
     # ------------------------------------------------------------------------
 
-    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages"])
+    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages"])
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
 
     if len(bottle.request.forms.items()) == 0:
@@ -339,6 +339,7 @@ def full_text_search_results():
 
     datetime_interval_obj = getattr(db, datetime_interval)
     collection_names = sorted(db.get_collection_names(name_filter = log_type))
+    logger.debug("collection_names: %s" % (collection_names, ))
     log_data = []
     for collection_name in collection_names:
         collection = db.get_collection(collection_name)
@@ -362,15 +363,15 @@ def full_text_search_results():
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
-    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages"])
+    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages"])
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
 
     search_string = str(bottle.request.forms.get("search_string"))
     log_type = str(bottle.request.forms.get("log_type"))
     datetime_interval = str(bottle.request.forms.get("datetime_interval"))
 
-    assert(log_type in valid_types)
-    assert(datetime_interval in valid_intervals)
+    assert(log_type in valid_types), "%s not in valid_types %s" % (log_type, valid_types)
+    assert(datetime_interval in valid_intervals), "%s not in valid_intervals %s" % (datetime_interval, valid_intervals)
     # ------------------------------------------------------------------------
 
     search_string_encoded = base64.urlsafe_b64encode(search_string)
