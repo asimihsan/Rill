@@ -7,7 +7,7 @@ production:             yes
 friendly name:          jabbah1
 dns hostname:           jabbah1-mgmt
 username:               root
-password:               bootstrap
+password:               "!bootstrap"
 type:                   NGMG
 log files:
     -   name:           messages
@@ -16,6 +16,8 @@ log files:
     -   name:           ep
         type:           ep
         full path:      /var/opt/MetaSwitch/ep.log
-
+    -   name:           ms_messages
+        type:           ms_messages
+        full path:      /var/opt/MetaSwitch/ms_messages
 # ----------------------------------------------------------------------------
         

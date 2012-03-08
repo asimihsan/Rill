@@ -7,7 +7,7 @@ production:             yes
 friendly name:          andromeda2
 dns hostname:           andromeda2
 username:               root
-password:               bootstrap
+password:               "!bootstrap"
 type:                   NGMG ShM
 log files:
     -   name:           messages
