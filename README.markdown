@@ -32,6 +32,8 @@ BUGS
 
 -   If an ssh_tap is outputting so much data that a parser subscriber cannot keep up, the ZeroMQ SUBSCRIBE binding, by default, keeps all pending messages in memory. This leads to memory increasing indefinitely. Want to adjust the SUBSCRIBE binding to have a finite high water mark and either keep them in swap memory or discard messages.
 
+-   Everything comes to a standstill if the box runs out of memory. There needs to be some sort of global activity monitor, and if it decides nothing has happened for too long just restart the top-level process. Symptoms are after the memory condition even if the box recovers ZeroMQ sockets just "stop working".
+
 TODO
 ----
 
