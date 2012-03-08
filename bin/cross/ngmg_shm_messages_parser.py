@@ -131,7 +131,7 @@ class LogDatum(object):
         return_value["minute"] = str(datetime_obj.minute)
         return_value["second"] = str(datetime_obj.second)
         return_value["contents"] = self.string_input
-        return_value["_keywords"] = self.tokenize(return_value["contents"])
+        return_value["keywords"] = self.tokenize(return_value["contents"])
         return return_value
 
     analyzer = StandardAnalyzer()
