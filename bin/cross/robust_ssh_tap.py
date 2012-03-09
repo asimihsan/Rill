@@ -95,6 +95,8 @@ try:
         # Production
         parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" --collection "${collection}" """)
 
+    tail_query_inode_template = Template(""" while [[ 1 ]]; do date +"%Y-%m-%dT%H:%M:%S"; ls -i ${log_filepath} 2>&1 | awk '{print \$$1}'; sleep 1; done """)
+
 except:
     logger.exception("unhandled exception during constant creation.")
     raise
@@ -214,18 +216,49 @@ def main(masspinger_zeromq_binding,
     logger.debug("ssh_tap location: %s" % (ssh_tap_filepath, ))
     ssh_tap_process = None
     ssh_tap_command = ssh_tap_template.substitute(executable = ssh_tap_filepath,
-                                                 host = host,
-                                                 command = command,
-                                                 username = username,
-                                                 password = password,
-                                                 zeromq_bind = ssh_tap_zeromq_binding).strip()
+                                                  host = host,
+                                                  command = command,
+                                                  username = username,
+                                                  password = password,
+                                                  zeromq_bind = ssh_tap_zeromq_binding).strip()
     if verbose:
         ssh_tap_command += " --verbose"
     logger.debug("ssh_tap_command: %s" % (ssh_tap_command, ))
-    ssh_tap_process_terminate_requested = False
-    ssh_tap_process_terminate_time = None
-    ssh_tap_process_terminate_threshold = 5
     # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   If we're performing a tail that does not have "follow=name" in it
+    #   then we're going to fail to follow rotated files. Launch a
+    #   separate instance to track the inode of the file being tailed,
+    #   and restart everything if it rolls.
+    # ------------------------------------------------------------------------
+    tail_query_inode_process = None
+    tail_query_inode_sub_socket = None
+    last_inode = None
+    is_tail_query_inode_required = command.startswith("tail") and "follow=name" not in command
+    if is_tail_query_inode_required:
+        logger.debug("perform tail query inode monitoring.")
+        log_filepath = command.split()[-1].strip("'\r\n")
+        logger.debug("log filepath: '%s'" % (log_filepath, ))
+        tail_query_inode_subcmd = tail_query_inode_template.substitute(log_filepath = log_filepath).strip()
+        current_ssh_tap_zeromq_binding_port = int(ssh_tap_zeromq_binding.split(":")[-1])
+        logger.debug("current_ssh_tap_zeromq_binding_port: %s" % (current_ssh_tap_zeromq_binding_port, ))
+        tail_query_inode_zeromq_binding = "tcp://127.0.0.1:%s" % (current_ssh_tap_zeromq_binding_port + 1, )
+        tail_query_inode_command = ssh_tap_template.substitute(executable = ssh_tap_filepath,
+                                                               host = host,
+                                                               command = tail_query_inode_subcmd,
+                                                               username = username,
+                                                               password = password,
+                                                               zeromq_bind = tail_query_inode_zeromq_binding).strip()
+        if verbose:
+            tail_query_inode_command += " --verbose"
+        logger.debug("tail_query_inode_command: %s" % (tail_query_inode_command, ))
+
+        tail_query_inode_sub_socket = context.socket(zmq.SUB)
+        tail_query_inode_sub_socket.connect(tail_query_inode_zeromq_binding)
+        tail_query_inode_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
+    # ------------------------------------------------------------------------
+
 
     # ------------------------------------------------------------------------
     # State for the parser.
@@ -256,39 +289,41 @@ def main(masspinger_zeromq_binding,
 
     poller = zmq.Poller()
     poller.register(masspinger_sub_socket, zmq.POLLIN)
-    #poller.register(ssh_tap_sub_socket, zmq.POLLIN)
+    if is_tail_query_inode_required:
+        poller.register(tail_query_inode_sub_socket, zmq.POLLIN)
     poll_interval = 1000
     try:
-        # Parser is always running, pop start here.
-        if parser_process is None:
-            logger.debug("Launching parser_process...")
-            parser_process = start_process(parser_command)
-
         while 1:
-            if ssh_tap_process is None and host_alive:
-                logger.debug("Launching ssh_tap_process...")
-                ssh_tap_process = start_process(ssh_tap_command)
-            if ssh_tap_process and \
-               (ssh_tap_process.poll() is None) and \
-               (not host_alive):
-                # Still running, but host is dead. Kill it.
-                logger.debug("ssh_tap running, host is dead.")
-                if not ssh_tap_process_terminate_requested:
-                    logger.debug("terminate ssh_tap...")
+            if host_alive:
+                if ssh_tap_process is None:
+                    logger.debug("ssh_tap_process not running, so restart it.")
+                    ssh_tap_process = start_process(ssh_tap_command)
+                if is_tail_query_inode_required and tail_query_inode_process is None:
+                    logger.debug("tail_query_inode_process not running, so restart it.")
+                    tail_query_inode_process = start_process(tail_query_inode_command)
+                if parser_process is None:
+                    logger.debug("parser_process not running, so restart it.")
+                    parser_process = start_process(parser_command)
+            else:
+                if ssh_tap_process and (ssh_tap_process.poll() is None):
+                    logger.debug("ssh_tap_process running but host dead, so kill it.")
                     terminate_process(ssh_tap_process, "ssh_tap_process")
-                    ssh_tap_process_terminate_requested = True
-                    ssh_tap_process_terminate_time = time.time()
-                elif (time.time() - ssh_tap_process_terminate_time) > ssh_tap_process_terminate_threshold:
-                    logger.debug("kill ssh_tap...")
-                    terminate_process(ssh_tap_process, "ssh_tap_process", kill=True)
-                    ssh_tap_process = None
-                    ssh_tap_process_terminate_requested = False
-                    ssh_tap_process_terminate_time = None
-            elif ssh_tap_process and \
-                 (ssh_tap_process.poll() is not None):
-                # Not running any more.
-                logger.debug("ssh_tap ended, return code: %s" % (ssh_tap_process.poll(), ))
+                if is_tail_query_inode_required and tail_query_inode_process and (tail_query_inode_process.poll() is None):
+                    logger.debug("tail_query_inode_process running but host dead, so kill it.")
+                    terminate_process(tail_query_inode_process, "tail_query_inode_process")
+                if parser_process and (parser_process.poll() is None):
+                    logger.debug("parser running but host dead, so kill it.")
+                    terminate_process(parser_process, "parser_process")
+
+            if ssh_tap_process and (ssh_tap_process.poll() is not None):
+                logger.debug("ssh_tap_process ended, return code %s." % (ssh_tap_process.poll(), ))
                 ssh_tap_process = None
+            if is_tail_query_inode_required and tail_query_inode_process and (tail_query_inode_process.poll() is not None):
+                logger.debug("tail_query_inode_process ended, return code %s." % (tail_query_inode_process.poll(), ))
+                tail_query_inode_process = None
+            if parser_process and (parser_process.poll() is not None):
+                logger.debug("parser_process ended, return code %s." % (parser_process.poll(), ))
+                parser_process = None
 
             socks = dict(poller.poll(poll_interval))
             #logger.debug("tick")
@@ -304,6 +339,20 @@ def main(masspinger_zeromq_binding,
                 # within a certain amount of time assume masspinger
                 # is dead and further assume the host is alive.
                 logger.debug("Assuming masspinger is dead, and host is alive")
+            if is_tail_query_inode_required and socks.get(tail_query_inode_sub_socket, None) == zmq.POLLIN:
+                contents = tail_query_inode_sub_socket.recv()
+                try:
+                    contents_decoded = json.loads(contents)
+                except:
+                    logger.error("couldn't decode inode socket contents: %s" % (contents, ))
+                else:
+                    if contents_decoded["contents"].strip().isdigit():
+                        old_last_inode = last_inode
+                        last_inode = contents_decoded["contents"].strip()
+                        logger.debug("inode updated from %s to %s" % (old_last_inode, last_inode))
+                        if all(elem is not None for elem in [last_inode, old_last_inode]) and (last_inode != old_last_inode):
+                            logger.debug("the file we're tailing has rotated.")
+                            terminate_process(ssh_tap_process, "ssh_tap_process")
 
             #if socks.get(ssh_tap_sub_socket, None) == zmq.POLLIN:
             #    contents = ssh_tap_sub_socket.recv()

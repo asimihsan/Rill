@@ -4,15 +4,20 @@
 
 production:             yes
 
-friendly name:          andromeda2
-dns hostname:           andromeda2
+friendly name:          altais1
+dns hostname:           altais1-mgmt
 username:               root
-password:               bootstrap
-type:                   NGMG ShM
+password:               "!bootstrap"
+type:                   NGMG
 log files:
     -   name:           messages
         type:           messages
         full path:      /var/log/messages
-
+    -   name:           ep
+        type:           ep
+        full path:      /var/opt/MetaSwitch/ep.log
+    -   name:           ms_messages
+        type:           ms_messages
+        full path:      /var/opt/MetaSwitch/ms_messages
 # ----------------------------------------------------------------------------
         

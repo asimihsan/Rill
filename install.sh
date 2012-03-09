@@ -4,7 +4,7 @@ INSTALL_GMP=0
 INSTALL_MPFR=0
 INSTALL_MPC=0
 INSTALL_GCC=0
-INSTALL_CLANG_AND_LLVM=1
+INSTALL_CLANG_AND_LLVM=0
 
 INSTALL_CURL=0
 INSTALL_BOOST=0
@@ -18,6 +18,8 @@ INSTALL_NMAP=0
 INSTALL_APR=0
 INSTALL_LOG4CXX=0
 INSTALL_JSONCPP=0
+
+INSTALL_R=1
 
 # ----------------------------------------------------------------------------- 
 #   Install GCC.
@@ -338,4 +340,45 @@ then
     ldconfig
     #rm -rf jsoncpp*
 fi
+# ----------------------------------------------------------------------------- 
+
+# ----------------------------------------------------------------------------- 
+#   Install R.
+# ----------------------------------------------------------------------------- 
+if [[ $INSTALL_R -eq 1 ]];
+then
+    cd /usr/local/src
+    rm -rf pixman*
+    wget "http://cairographics.org/releases/pixman-0.24.4.tar.gz"
+    tar xvf pixman-0.24.4.tar.gz
+    cd pixman-0.24.4
+    ./configure
+    nice make -j8
+    make install
+    cd /usr/local/src
+    rm -rf pixman*
+
+    cd /usr/local/src
+    rm -f libpng*
+    wget "http://downloads.sourceforge.net/project/libpng/libpng15/1.5.9/libpng-1.5.9.tar.gz?r=http%3A%2F%2Fwww.libpng.org%2Fpub%2Fpng%2Flibpng.html&ts=1330783105&use_mirror=garr"
+    tar xvf libpng-1.5.9.tar.gz
+    cd libpng-1.5.9
+    ./configure
+    nice make -j8
+    make install
+    cd /usr/local/src
+    rm -rf libpng*
+
+    rm -rf cairo*
+    wget "http://cairographics.org/releases/cairo-1.10.2.tar.gz"
+    tar xvf cairo-1.10.2.tar.gz
+    cd cairo-1.10.2
+    ./configure
+    nice make -j8
+    make install
+    cd /usr/local/src
+    rm -rf cairo*
+
+fi
+
 # ----------------------------------------------------------------------------- 

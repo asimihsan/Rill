@@ -90,6 +90,10 @@ try:
     assert(os.path.isfile(robust_ssh_tap_filepath)), "%s not good robust_ssh_tap_filepath" % (robust_ssh_tap_filepath, )
     robust_ssh_tap_template = Template(""" ${executable} --masspinger "${masspinger_zeromq_bind}" --ssh_tap "${ssh_tap_zeromq_bind}" --parser "${parser_zeromq_bind}" --parser_name "${parser_name}" --results "${results_zeromq_bind}" --host "${host}" --command "${command}" --username "${username}" --password "${password}" """)
 
+    masspinger_tap_filepath = os.path.join(cross_bin_directory, "masspinger_tap.py")
+    assert(os.path.isfile(masspinger_tap_filepath)), "%s not good masspinger_tap_filepath" % (masspinger_tap_filepath, )
+    masspinger_tap_template = Template(""" ${executable} --masspinger_zeromq_bind "${masspinger_zeromq_bind}" --database "pings" """)
+
 except:
     logger.exception("unhandled exception during constant creation.")
     raise
@@ -215,6 +219,12 @@ class BoxConfig(object):
 
     def get_production(self):
         return self.production
+
+    def get_tail_command(self):
+        if self.type == "NGMG":
+            return "tail -f --follow=name"
+        else:
+            return "tail -f"
 
 class LogFile(object):
     def __init__(self, log_name, log_type, log_full_path):
@@ -361,7 +371,7 @@ def main(verbose):
                 logger.debug("Global is production, but this is a test box.")
                 continue
             elif not is_global_production and box_config.get_production():
-                logger.debug("Global is test, but this is a product box.")
+                logger.debug("Global is test, but this is a production box.")
                 continue
             hostnames.append(box_config.get_dns_hostname())
         masspinger_cmd = masspinger_template.substitute(executable = masspinger_filepath,
@@ -373,6 +383,13 @@ def main(verbose):
         proc = start_process(masspinger_cmd)
         masspinger_process = Process(masspinger_cmd, "masspinger", proc)
         all_processes.append(masspinger_process)
+
+        masspinger_tap_cmd = masspinger_tap_template.substitute(executable = masspinger_tap_filepath,
+                                                                masspinger_zeromq_bind = masspinger_zeromq_bind).strip()
+        masspinger_tap_cmd += " --verbose"
+        proc = start_process(masspinger_tap_cmd)
+        masspinger_tap_process = Process(masspinger_tap_cmd, "masspinger_tap", proc)
+        all_processes.append(masspinger_tap_process)
         # --------------------------------------------------------------------
 
         # --------------------------------------------------------------------
@@ -413,7 +430,8 @@ def main(verbose):
                 parser_name = parser_config.get_parser_name()
                 results_zeromq_bind = "tcp://127.0.0.1:%s" % (results_port, )
                 host = box_config.get_dns_hostname()
-                command = "tail -f '%s'" % (log_file.get_full_path(), )
+                tail_prefix = box_config.get_tail_command()
+                command = "%s '%s'" % (tail_prefix, log_file.get_full_path(), )
                 username = box_config.get_username()
                 password = box_config.get_password()
                 command = robust_ssh_tap_template.substitute( \
@@ -432,9 +450,9 @@ def main(verbose):
                     command += " --verbose"
 
                 commands.append((command, host, parser_name, parser_zeromq_bind))
-                ssh_tap_port += 1
-                parser_port += 1
-                results_port += 1
+                ssh_tap_port += 5
+                parser_port += 5
+                results_port += 5
 
         logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))
         for (command, host, parser_name, results_zeromq_bind) in commands:
@@ -520,9 +538,9 @@ def terminate_process(process_object, process_name, kill=False):
             process_object.terminate()
         else:
             process_object.send_signal(signal.CTRL_C_EVENT)
+        time.sleep(2)
         if kill:
             logger.debug("...and kill")
-            time.sleep(1)
             process_object.kill()
         return True
     except:
