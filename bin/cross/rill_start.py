@@ -116,7 +116,11 @@ class GlobalConfig(object):
                 logger.error("'%s' missing" % (root_key, ))
                 return False
         port_ranges = global_config_tree["port_ranges"]
-        for port_range_key in ["masspinger_port", "ssh_tap_port_start", "parser_port_start", "results_port_start"]:
+        for port_range_key in ["service_registry_port",
+                               "masspinger_port",
+                               "ssh_tap_port_start",
+                               "parser_port_start",
+                               "results_port_start"]:
             if port_range_key not in port_ranges:
                 logger.error("'%s' not in port_ranges" % (port_range_key, ))
                 return False
@@ -129,11 +133,15 @@ class GlobalConfig(object):
         self.robust_ssh_tap_verbose = global_config_tree["robust_ssh_tap_verbose"]
         self.production = global_config_tree["production"]
         port_ranges = global_config_tree["port_ranges"]
+        self.service_registry_port = global_config_tree["service_registry_port"]
         self.masspinger_port = port_ranges["masspinger_port"]
         self.ssh_tap_port_start = port_ranges["ssh_tap_port_start"]
         self.parser_port_start = port_ranges["parser_port_start"]
         self.results_port_start = port_ranges["results_port_start"]
         self.valid = True
+
+    def get_service_registry_port(self):
+        return self.service_registry_port
 
     def get_masspinger_port(self):
         return self.masspinger_port

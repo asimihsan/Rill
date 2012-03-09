@@ -11,7 +11,8 @@ parser_verbose:                 off
 production:                     yes
 
 port_ranges:
-        masspinger_port:        10000
+        service_registry_port:  10000
+        masspinger_port:        10001
         ssh_tap_port_start:     11000
         parser_port_start:      12000
         results_port_start:     13000
