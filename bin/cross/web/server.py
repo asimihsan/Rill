@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.7
 
+import gevent
 from gevent import monkey; monkey.patch_all()
 
 import time
@@ -191,6 +192,7 @@ def ep_error_count():
     # ------------------------------------------------------------------------
     #   Using group() get a count of each error_id.
     # ------------------------------------------------------------------------
+    jobs = []
     error_id_to_collection = {}
     summarized_error_data = {}
     summarized_warning_data = {}
@@ -210,11 +212,15 @@ def ep_error_count():
         for collection_name in collection_names:
             logger.debug("collection_name: %s" % (collection_name, ))
             collection = db.get_collection(collection_name)
-            result = collection.group(key = q_key,
-                                      condition = q_condition,
-                                      initial = q_initial,
-                                      reduce = q_reduce)
-            for elem in result:
+            job = gevent.spawn(collection.group,
+                               key = q_key,
+                               condition = q_condition,
+                               initial = q_initial,
+                               reduce = q_reduce)
+            jobs.append(job)
+        gevent.joinall(jobs)
+        for job in jobs:
+            for elem in job.value:
                 key = elem["error_id"]
                 value = int(elem["count"])
                 data_obj[key] = data_obj.get(key, 0) + value
@@ -242,8 +248,9 @@ def ep_error_count():
             if error_id in error_id_to_collection:
                 collection = error_id_to_collection[error_id]
                 example_result = collection.find_one({"error_id": error_id})
-                contents = example_result["contents"]
-                example = contents.partition("[%s]" % (error_id, ))[-1].strip()
+                if example_result and "contents" in example_result:
+                    contents = example_result["contents"]
+                    example = contents.partition("[%s]" % (error_id, ))[-1].strip()
             error_id_instances_link = r'/ep_error_instances?error_id=%s' % (base64.urlsafe_b64encode(error_id), )
             sorted_data[i] = (error_id, count, example, error_id_instances_link)
     # ------------------------------------------------------------------------
