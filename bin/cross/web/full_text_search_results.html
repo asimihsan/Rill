@@ -1,0 +1,24 @@
+
+{% include 'fragment_top.html' %}
+
+<h2>Full text search results.</h2>
+<ul>
+    {% for (collection_name, collection_lines) in log_data %}
+    <li><a href="#{{ collection_name }}">{{ collection_name }}</a>, {{ collection_lines.count() }} result(s).</li>
+    {% endfor %}
+</ul>
+{% for (collection_name, collection_lines) in log_data %}
+{% if collection_lines.count() > 0 %}
+    <p id="{{ collection_name }}">
+        <table class="table table-condensed">
+            <tbody class="mono">
+                {% for line in collection_lines %}
+                <tr><td>{{ line["contents"] }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </p>
+{% endif %}
+{% endfor %}
+
+{% include 'fragment_bottom.html' %}

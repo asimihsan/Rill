@@ -21,12 +21,14 @@ class Database(object):
     five_minutes = datetime.timedelta(minutes=5)
     ten_minutes = datetime.timedelta(minutes=10)
 
-    def __init__(self):
+    def __init__(self, database_name=None):
+        if not database_name:
+            database_name = "logs"
         self.write_connection = pymongo.Connection(master_hostname)
-        self.write_database = self.write_connection["logs"]
+        self.write_database = self.write_connection[database_name]
 
         self.read_connection = pymongo.Connection(slave_hostnames)
-        self.read_database = self.read_connection["logs"]
+        self.read_database = self.read_connection[database_name]
 
     def get_collection(self, collection_name):
         return self.write_database[collection_name]
@@ -34,10 +36,16 @@ class Database(object):
     def get_read_collection(self, collection_name):
         return self.read_database[collection_name]
 
-    def create_index(self, collection_name, field):
+    def create_index(self, collection_name, field, index_type=pymongo.DESCENDING):
+        return self.ensure_index(collection_name, field, index_type)
+
+    def ensure_index(self, collection_name, field, index_type=pymongo.DESCENDING):
         collection = self.write_database[collection_name]
-        index = [(field, pymongo.DESCENDING)]
-        return collection.create_index(index)
+        if not index_type:
+            index = field
+        else:
+            index = [(field, index_type)]
+        return collection.ensure_index(index)
 
     def get_all_items_from_collection_newer_than(self,
                                                  collection_name,

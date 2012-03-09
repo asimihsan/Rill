@@ -1,0 +1,22 @@
+{% include 'fragment_top.html' %}
+
+<h2>ShM split brain.</h2>
+<ul>
+    {% for (collection_name, collection_lines) in log_data %}
+    <li><a href="#{{ collection_name }}">{{ collection_name }}</a></li>
+    {% endfor %}
+</ul>
+{% for (collection_name, collection_lines) in log_data %}
+    <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
+    <p>
+        <table class="table table-condensed">
+            <tbody class="mono">
+                {% for line in collection_lines %}
+                <tr><td>{{ line["contents"] }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </p>
+{% endfor %}
+
+{% include 'fragment_bottom.html' %}

@@ -1,0 +1,18 @@
+# ----------------------------------------------------------------------------
+#   Box configuration file.
+# ----------------------------------------------------------------------------
+
+production:             yes
+
+friendly name:          ac01shma.osprey
+dns hostname:           ac01shma.osprey
+username:               root
+password:               "!bootstrap"
+type:                   NGMG ShM
+log files:
+    -   name:           messages
+        type:           messages
+        full path:      /var/log/messages
+
+# ----------------------------------------------------------------------------
+        
