@@ -19,7 +19,13 @@ Non-functional requirements:
 BUGS
 ----
 
--   On file rotation if we use a version of tail that does not support the '--follow=name' flag (Solaris, BusyBox Linux) we will fail to pick up the new log contents. Fix is to start a total of three libssh2 sessions for a given tap that requires tailing
+-   parsers stop reading in output from ssh_tap via SUBSCRIBE after a while. Why? ssh_tap says it's PUBLISHing it. Does this happen when ssh_tap restarts? Does ZeroMQ SUBSCRIBE just stop working? It's a blocking recv() call...maybe we should restart the parser instance when ssh_tap is restarted?
+
+-   If an ssh_tap is outputting so much data that a parser subscriber cannot keep up, the ZeroMQ SUBSCRIBE binding, by default, keeps all pending messages in memory. This leads to memory increasing indefinitely. Want to adjust the SUBSCRIBE binding to have a finite high water mark and either keep them in swap memory or discard messages.
+
+-   Everything comes to a standstill if the box runs out of memory. There needs to be some sort of global activity monitor, and if it decides nothing has happened for too long just restart the top-level process. Symptoms are after the memory condition even if the box recovers ZeroMQ sockets just "stop working".
+
+X   On file rotation if we use a version of tail that does not support the '--follow=name' flag (Solaris, BusyBox Linux) we will fail to pick up the new log contents. Fix is to start a total of three libssh2 sessions for a given tap that requires tailing
     -   The first is the regular tail.
     -   The second is an empty session, doing nothing and twiddling its thumbs.
     -   The third is an infinite while [[ 1 ]] sleep 1 that uses 'ls -i' to get the inode number of the file. If it changes:
@@ -28,14 +34,16 @@ BUGS
         -   Start a new session to take the place of backup.
     Of course you could avoid this by using a real version of tail, but BusyBox doesn't have one.
 
--   parsers stop reading in output from ssh_tap via SUBSCRIBE after a while. Why? ssh_tap says it's PUBLISHing it. Does this happen when ssh_tap restarts? Does ZeroMQ SUBSCRIBE just stop working? It's a blocking recv() call...maybe we should restart the parser instance when ssh_tap is restarted?
-
--   If an ssh_tap is outputting so much data that a parser subscriber cannot keep up, the ZeroMQ SUBSCRIBE binding, by default, keeps all pending messages in memory. This leads to memory increasing indefinitely. Want to adjust the SUBSCRIBE binding to have a finite high water mark and either keep them in swap memory or discard messages.
-
--   Everything comes to a standstill if the box runs out of memory. There needs to be some sort of global activity monitor, and if it decides nothing has happened for too long just restart the top-level process. Symptoms are after the memory condition even if the box recovers ZeroMQ sockets just "stop working".
-
 TODO
 ----
+
+-   Create a dirty "service_registry". You can look up and update ZeroMQ bindings here. Don't get excited, just wrap a Python dictionary in a JSON over HTTP. I have code for this in Twisted lying around, just re-use it. 
+
+-   Real-time filtered log display over HTTP. This is the most visually impressive and useful thing we can do now. Depends on the service registry, feels like it'll go like:
+    -   Get a list of all available ZeroMQ "_parser" PUBLISH sockets that we can use.
+    -   Get an HTTP request to weave together several "_parser" PUBLISH sockets. Recall these are timestamped blocks of log data, for now all single lines. By default unfiltered.
+    -   This will start pushing out JSON for some HTTP client.
+    -   Somehow route this to the HTTP client, use Javascript to update the screen with coloured log data.
 
 - ssh_tap as it stands is alright. I want to extend it to support the following:
     -   Support multiple, simultaneous command execution. It will open SSH channels within the current session, get to a pexpect state, and then run the commands on them.
