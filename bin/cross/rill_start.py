@@ -133,7 +133,7 @@ class GlobalConfig(object):
         self.robust_ssh_tap_verbose = global_config_tree["robust_ssh_tap_verbose"]
         self.production = global_config_tree["production"]
         port_ranges = global_config_tree["port_ranges"]
-        self.service_registry_port = global_config_tree["service_registry_port"]
+        self.service_registry_port = port_ranges["service_registry_port"]
         self.masspinger_port = port_ranges["masspinger_port"]
         self.ssh_tap_port_start = port_ranges["ssh_tap_port_start"]
         self.parser_port_start = port_ranges["parser_port_start"]
