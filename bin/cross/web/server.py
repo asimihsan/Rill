@@ -192,7 +192,6 @@ def ep_error_count():
     # ------------------------------------------------------------------------
     #   Using group() get a count of each error_id.
     # ------------------------------------------------------------------------
-    jobs = []
     error_id_to_collection = {}
     summarized_error_data = {}
     summarized_warning_data = {}
@@ -209,6 +208,7 @@ def ep_error_count():
                                 {
                                     aggregator.count += 1;
                                 }""")
+        jobs = []
         for collection_name in collection_names:
             logger.debug("collection_name: %s" % (collection_name, ))
             collection = db.get_collection(collection_name)
@@ -219,7 +219,8 @@ def ep_error_count():
                                reduce = q_reduce)
             jobs.append(job)
         gevent.joinall(jobs)
-        for job in jobs:
+        for (collection_name, job) in zip(collection_names, jobs):
+            collection = db.get_collection(collection_name)
             for elem in job.value:
                 key = elem["error_id"]
                 value = int(elem["count"])
