@@ -117,9 +117,14 @@ def shm_memory_charts():
     friendly_collection_names = [elem.partition(db.ngmg_shm_messages_collection_filter)[0].strip("_").replace(".", "_")
                                  for elem in collections]
     collection_objects = [db.get_collection(collection) for collection in collections]
-    memory_data = []
+    jobs = []
     for collection in collection_objects:
-        memory_datum = db.get_shm_memory_data(collection)
+        job = gevent.spawn(db.get_shm_memory_data, collection)
+        jobs.append(job)
+    gevent.joinall(jobs)
+    memory_data = []
+    for job in jobs:
+        memory_datum = job.value
         memory_datum.reverse()
         # var d2 = [[0, 3], [4, 8], [8, 5], [9, 13]];
         elems1 = ["[%s, %s]" % (epoch, percent_free) for (epoch, percent_free) in memory_datum]
