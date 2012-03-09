@@ -68,6 +68,7 @@ TODO
                 -   fields on response:                    
                     -   session_id: a globally unique identifier that corresponds to the session on the SSH server, that can be referenced in subsequent calls.
                     -   publish_zeromq_bind: a string for the PUBLISH zeromq binding that the client can SUBSCRIBE to in order to receive data sent from the session. in theory the client has already missed out some data because they'll be SUBSCRIBE-ing a bit late, but assume this initial data isn't interesting (e.g. bash banner). I don't want to have to cache / send this.
+                    -   prompt string: the string corresponding to what ssh_tap will reset the bash propmpt. this'll be "[PEXPECT]$ ". ssh_tap will happily return data from the channel with this propmt in it, so expect it!
                 -   failure modes to consider:
                     -   how many simultaneous sessions do you really want open? Maybe cap it at N, and reject subsequent create requests.
             -   delete_session. Immediately delete the session, do not make any special attempt to recover more output from the session.
@@ -88,15 +89,25 @@ TODO
                 -   fields on response:
                     -   a list of sessions. could be an empty list, else for each session return:
                         -   session_id.
-                        -   client_id: for the requester who created the session.
-                        -   datetime: for when the session was opened.
-                        -   bytes written: total number of bytes written into the session.
-                        -   bytes read: total number of bytes read from the session.
+                        -   creator_client_id: for the requester who created the session.
+                        -   create_datetime: for when the session was opened.
+                        -   bytes_written: total number of bytes written into the session.
+                        -   bytes_read: total number of bytes read from the session.
+                        -   last_read_activity: datetime corresponding to the last time any bytes were read from the session.
+                        -   last_write_activity: datetime corresponding to the last time any bytes were written to the session.
                 
-    -   On startup start a pool of e.g. 5 sessions. Get these all ready at the pexpect prompts.
-    -   Do not reuse sessions. When a session gets delete really delete it, don't put it back into a pool of free sessions. This creates exciting race conditions, e.g. hammering ssh_tap with a catastrophic mix of create and delete commands and seeing what it does.
-    -   If ssh_tap thinks it's gotten into a pickle just assert. We assume a robust wrapper, i.e. robust_ssh_tap, is sitting outside ssh_tap ready to relaunch it.
-
+    -   On startup start a pool of e.g. 5 sessions. Get these all ready at the pexpect prompts. This reduces the latency of incoming create_session requests in the best case. In the worst case we delete sessions so fast we need to create sessions from scratch anyway.
+    -   Do not reuse sessions. When a session gets delete really delete it, don't put it back into a pool of free sessions. This creates exciting race conditions, e.g. hammering ssh_tap with a catastrophic mix of create and delete commands and seeing what it does. But I want real start/exits of bash sessions.
+    -   If ssh_tap thinks it's gotten into a pickle just assert. We assume a robust wrapper, i.e. robust_ssh_tap, is sitting outside ssh_tap ready to relaunch it. Don't try to persist information or make commands durable, just drop it all on the floor and go sulk behind a tree.
+    -   Basic functional tests.
+        -   create_session. subscribe to the publish socket. send "echo testing". read back e.g. "testing\r\n[PEXPECT] $". test passes. delete_session.
+        -   create_session. get_session_info. delete_session. get_session_info.
+        -   create N+1 sessions. expect the last command to fail.
+        -   create session. delete session. delete session. last command fails.
+        -   run test_servers.py, which appends data to /home/ubuntu/test.log. run ssh_tap. create_session for "tail -f /home/ubutnu/test.log". get some data. delete the session. stop test_servers.py. test cases if you get sensible stuff back. 
+        -   do the above, but mimic log rotation (move the file). use "tail -f --follow=name /home/ubuntu/test.log", should continue to get data across the rotation.
+    -   Robustness tests.        
+        -   Hammer the server with a mix of create_session and delete_session requests of mixed proportions. try 0.25/0.75, 0.5/0.5, 0.75/0.25. ssh_tap should always be responsive over signalling and, after deleting open sessions, should be available for new working sessions.
 
 TODO (done)
 -----------
