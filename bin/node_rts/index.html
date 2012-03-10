@@ -78,6 +78,14 @@
 
     $(document).ready(function() {
         var socket = io.connect("http://localhost:8081");
+        var hostname = "leo1";
+
+        function send_hostname_selection()
+        {
+            socket.emit("hostname_selection", {"hostname": hostname});
+        }
+        socket.on('hostname_selection', send_hostname_selection);
+
         var top_of_page = $('html, body');
         var log_table = $("#log_table");
         var maximum_logs = 100;
@@ -95,12 +103,6 @@
             }
             // top_of_page.animate({scrollTop:$(document).height()}, 100);
         });
-
-        function send_heartbeat()
-        {
-            //socket.emit('pony', {});
-        }
-        setInterval(send_heartbeat, 1000);
     });
 
 </script>
