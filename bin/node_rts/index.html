@@ -93,7 +93,7 @@
                 $("#log_table").empty();
                 is_connected = false;
             }
-            setTimeout(connect_to_real_time_server, 1000);
+            setTimeout(connect_to_real_time_server, 100);
         });
         $("#hostname").prop("selectedIndex", -1);
 
@@ -119,21 +119,26 @@
 
             var top_of_page = $('body');
             var log_table = $("#log_table");
-            var maximum_logs = 100;
+            var maximum_logs = 1000;
             socket.on('log', function(data)
             {
-                var text_to_insert = [];
-                var i = 0;
-                text_to_insert[i++] = "<tr><td>";
-                text_to_insert[i++] = data.contents;
-                text_to_insert[i++] = "</td></tr>";
-                log_table.append(text_to_insert.join(''));
-                rows = log_table.children();
-                if (rows.length > maximum_logs)
+                if (is_connected)
                 {
-                    rows.slice(0, 1).remove();
+                    var text_to_insert = [];
+                    var i = 0;
+                    text_to_insert[i++] = "<tr style=\"background: "
+                    text_to_insert[i++] = data.color;
+                    text_to_insert[i++] = ";\"><td>";
+                    text_to_insert[i++] = data.contents;
+                    text_to_insert[i++] = "</td></tr>";
+                    log_table.append(text_to_insert.join(''));
+                    rows = log_table.children();
+                    if (rows.length > maximum_logs)
+                    {
+                        rows.slice(0, 1).remove();
+                    }
+                    // top_of_page.animate({scrollTop:$(document).height()}, 100);
                 }
-                // top_of_page.animate({scrollTop:$(document).height()}, 100);
             });
         }
     });

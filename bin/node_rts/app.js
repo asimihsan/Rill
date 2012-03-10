@@ -14,6 +14,19 @@ app.use("/js", express.static(__dirname + "/js"));
 app.use("/js/libs", express.static(__dirname + "/js/libs"));
 app.use("/css", express.static(__dirname + "/css"));
 
+var colors = []
+colors.push("#8DD3C7");
+colors.push("#FFFFB3");
+colors.push("#BEBADA");
+colors.push("#FB8072");
+colors.push("#80B1D3");
+colors.push("#FDB462");
+colors.push("#B3DE69");
+colors.push("#FCCDE5");
+colors.push("#D9D9D9");
+colors.push("#BC80BD");
+logger.debug(util.format("colors: %s", colors));
+
 io.sockets.on('connection', function (socket)
 {
     logger.info("received client connection, waiting for hostname selection.");
@@ -42,6 +55,7 @@ io.sockets.on('connection', function (socket)
             }
             console.log("bindings are: " + bindings);
             var subs = []
+
             for (var i = 0; i < bindings.length; i++)
             {
                 var binding = bindings[i];
@@ -50,15 +64,14 @@ io.sockets.on('connection', function (socket)
                 sub.connect(binding);
                 sub.subscribe('');
                 sub.setsockopt('hwm', 1000);
-                sub.on('message', handle_zeromq_message);
+                sub.color = colors[i];
+                sub.on('message', function(msg)
+                {
+                    obj = JSON.parse(msg);
+                    socket.emit('log', {color: this.color,
+                                        contents: obj.contents});
+                });
                 subs.push(sub);
-            }
-
-            function handle_zeromq_message(msg)
-            {
-                obj = JSON.parse(msg);
-                socket.emit('log', { contents: obj.contents });
-                //console.log(msg.toString()); 
             }
 
             socket.on('disconnect', function() {
