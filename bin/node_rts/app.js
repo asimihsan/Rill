@@ -20,8 +20,9 @@ io.sockets.on('connection', function (socket)
     socket.emit("hostname_selection", {});
     socket.on('hostname_selection', function(data)
     {
-        logger.info("received hostname selection, will poll for services.");
-        var hostname = "leo1";    
+        logger.info(util.format("received hostname selection %s, will poll for services.", data));
+        var hostname = JSON.parse(data);    
+        logger.debug("hostname: " + hostname);
         var bindings = []
         request('http://127.0.0.1:10000/list_of_services', function (error, response, body)
         {
