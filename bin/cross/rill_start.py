@@ -20,6 +20,8 @@ from glob import glob
 import pprint
 import yaml
 import psutil
+import requests
+import socket
 
 # -----------------------------------------------------------------------------
 #   Logging.
@@ -94,6 +96,10 @@ try:
     assert(os.path.isfile(masspinger_tap_filepath)), "%s not good masspinger_tap_filepath" % (masspinger_tap_filepath, )
     masspinger_tap_template = Template(""" ${executable} --masspinger_zeromq_bind "${masspinger_zeromq_bind}" --database "pings" """)
 
+    service_registry_filepath = os.path.join(cross_bin_directory, "service_registry.py")
+    assert(os.path.isfile(service_registry_filepath)), "%s not good service_registry_filepath" % (service_registry_filepath, )
+    service_registry_template = Template(""" ${executable} --port ${port} """)
+
 except:
     logger.exception("unhandled exception during constant creation.")
     raise
@@ -110,6 +116,7 @@ class GlobalConfig(object):
 
         for root_key in ["port_ranges",
                          "production",
+                         "service_registry_verbose",
                          "masspinger_verbose",
                          "robust_ssh_tap_verbose"]:
             if root_key not in global_config_tree:
@@ -129,6 +136,7 @@ class GlobalConfig(object):
     def parse(self, global_config_tree):
         if not self.validate_tree(global_config_tree):
             return None
+        self.service_registry_verbose = global_config_tree["service_registry_verbose"]
         self.masspinger_verbose = global_config_tree["masspinger_verbose"]
         self.robust_ssh_tap_verbose = global_config_tree["robust_ssh_tap_verbose"]
         self.production = global_config_tree["production"]
@@ -154,6 +162,9 @@ class GlobalConfig(object):
 
     def get_results_port_start(self):
         return self.results_port_start
+
+    def get_service_registry_verbose(self):
+        return self.service_registry_verbose
 
     def get_masspinger_verbose(self):
         return self.masspinger_verbose
@@ -306,6 +317,15 @@ class StoreConfig(object):
         self.hostname = store_config_tree["hostname"]
         self.valid = True
 
+def add_service_to_service_registry(port, service_name, service_value):
+    logger = logging.getLogger("%s.add_service_to_service_registry" % (APP_NAME, ))
+    logger.debug("entry. port: %s, service_name: %s, service_value: %s" % (port, service_name, service_value))
+    url = "http://127.0.0.1:%s/add_service" % (port, )
+    data = {"service_data": json.dumps({service_name: service_value})}
+    r = requests.post(url, data=data)
+    logger.debug("status code return: %s" % (r.status_code, ))
+    r.raise_for_status()
+
 def main(verbose):
     logger = logging.getLogger("%s.main" % (APP_NAME, ))
     logger.debug("entry. verbose: %s" % (verbose, ))
@@ -365,12 +385,27 @@ def main(verbose):
     all_processes = []
     try:
         # --------------------------------------------------------------------
+        #   We'll always need one service_registry instance.
+        # --------------------------------------------------------------------
+        service_registry_port = global_config.get_service_registry_port()
+        service_registry_cmd = service_registry_template.substitute(executable = service_registry_filepath,
+                                                                    port = service_registry_port).strip()
+        if global_config.get_service_registry_verbose():
+            service_registry_cmd += " --verbose"
+        logger.debug("service_registry_cmd: %s" % (service_registry_cmd, ))
+        proc = start_process(service_registry_cmd)
+        service_registry_process = Process(service_registry_cmd, "service_registry", proc)
+        all_processes.append(service_registry_process)
+        time.sleep(2)
+        # --------------------------------------------------------------------
+
+
+        # --------------------------------------------------------------------
         #   We will always need one masspinger object monitoring all hosts.
         #   Let's get it running now.
         # --------------------------------------------------------------------
         masspinger_port = global_config.get_masspinger_port()
         masspinger_zeromq_bind = "tcp://*:%s" % (masspinger_port, )
-
         hostnames = []
         is_global_production = global_config.get_production()
         for box_config in box_configs:
@@ -398,6 +433,11 @@ def main(verbose):
         proc = start_process(masspinger_tap_cmd)
         masspinger_tap_process = Process(masspinger_tap_cmd, "masspinger_tap", proc)
         all_processes.append(masspinger_tap_process)
+
+        remote_masspinger_zeromq_binding = "tcp://%s:%s" % (socket.getfqdn(), masspinger_port)
+        add_service_to_service_registry(port = service_registry_port,
+                                        service_name = "masspinger",
+                                        service_value = remote_masspinger_zeromq_binding)
         # --------------------------------------------------------------------
 
         # --------------------------------------------------------------------
@@ -461,6 +501,11 @@ def main(verbose):
                 ssh_tap_port += 5
                 parser_port += 5
                 results_port += 5
+
+                # Register the parser PUBLISH bindings with the service registry.
+                add_service_to_service_registry(port = service_registry_port,
+                                                service_name = "%s_%s" % (host, parser_name),
+                                                service_value = parser_zeromq_bind)
 
         logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))
         for (command, host, parser_name, results_zeromq_bind) in commands:

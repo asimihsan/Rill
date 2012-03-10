@@ -223,7 +223,7 @@ def main(app_name, log_datum_class, fields_to_index):
                 if log_datum.get_dict_representation() is None:
                     logger.warning("log_datum not valid, skip.")
                     continue
-                publish_socket.send(str(log_datum))
+                publish_socket.send(json.dumps(log_datum.get_dict_representation()))
 
                 # !!AI hacks
                 # I can't figure out what I can't get thie data off the
