@@ -76,38 +76,90 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
 
-    $(document).ready(function() {
-        var socket = io.connect("http://localhost:8081");
-        var hostname = "leo1";
+    $(document).ready(function()
+    {
+        var is_connected = false;
+        var socket;
+        var hostname;
+        var has_ever_connected = false;
 
-        function send_hostname_selection()
+        $("#hostname").change(function()
         {
-            socket.emit("hostname_selection", {"hostname": hostname});
-        }
-        socket.on('hostname_selection', send_hostname_selection);
-
-        var top_of_page = $('html, body');
-        var log_table = $("#log_table");
-        var maximum_logs = 100;
-        socket.on('log', function(data) {
-            var text_to_insert = [];
-            var i = 0;
-            text_to_insert[i++] = "<tr><td>";
-            text_to_insert[i++] = data.contents;
-            text_to_insert[i++] = "</td></tr>";
-            log_table.append(text_to_insert.join(''));
-            rows = log_table.children();
-            if (rows.length > maximum_logs)
+            hostname = $("#hostname option:selected").val();
+            console.log("hostname selection changes to: " + hostname);
+            if (is_connected)
             {
-                rows.slice(0, 1).remove();
+                socket.disconnect();
+                $("#log_table").empty();
+                is_connected = false;
             }
-            // top_of_page.animate({scrollTop:$(document).height()}, 100);
+            setTimeout(connect_to_real_time_server, 1000);
         });
+        $("#hostname").prop("selectedIndex", -1);
+
+        function connect_to_real_time_server()
+        {
+            console.log("connect_to_real_time_server entry for hostname: " + hostname);
+            if (!has_ever_connected)
+            {
+                socket = io.connect("http://localhost:8081");
+                has_ever_connected = true;
+            }
+            else
+            {
+                socket = io.connect(null,{'force new connection':true});
+            }
+            socket.on('hostname_selection', function()
+            {
+                console.log("emitting hostname selection: " + hostname);
+                socket.emit("hostname_selection", JSON.stringify(hostname));
+            });
+            is_connected = true;
+            //socket.socket.reconnect();
+
+            var top_of_page = $('body');
+            var log_table = $("#log_table");
+            var maximum_logs = 100;
+            socket.on('log', function(data)
+            {
+                var text_to_insert = [];
+                var i = 0;
+                text_to_insert[i++] = "<tr><td>";
+                text_to_insert[i++] = data.contents;
+                text_to_insert[i++] = "</td></tr>";
+                log_table.append(text_to_insert.join(''));
+                rows = log_table.children();
+                if (rows.length > maximum_logs)
+                {
+                    rows.slice(0, 1).remove();
+                }
+                // top_of_page.animate({scrollTop:$(document).height()}, 100);
+            });
+        }
     });
 
 </script>
 
 <h2>Real time stream</h2>
+
+<form class="well">
+    <div class="control-group">
+        <label>Hostname</label>
+        <select name="hostname" id="hostname">
+            <option value="andromeda">ShM - andromeda</option>
+            <option value="draco">ShM - draco</option>
+            <option value="gemini">ShM - gemini</option>
+            <option value="leo">ShM - leo</option>
+            <option value="scorpius">ShM - scorpius</option>
+            <option value="alpheratz">NGMG - alpheratz</option>
+            <option value="altais">NGMG - alatais</option>
+            <option value="arrakis">NGMG - arrakis</option>
+            <option value="jabbah">NGMG - jabbah</option>
+            <option value="juza">NGMG - juza</option>
+            <option value="rastaban">NGMG - rastaban</option>
+        </select>
+    </div>
+</form>
 
 <p>
     <table class="table table-condensed">
