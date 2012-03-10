@@ -1,0 +1,43 @@
+{% include 'fragment_top.html' %}
+
+<script>
+
+    $(document).ready(function() {
+        var socket = io.connect("http://localhost:8081");
+        var top_of_page = $('html, body');
+        var log_table = $("#log_table");
+        var maximum_logs = 100;
+        socket.on('message', function(data) {
+            var text_to_insert = [];
+            var i = 0;
+            text_to_insert[i++] = "<tr><td>";
+            text_to_insert[i++] = data;
+            text_to_insert[i++] = "</td></tr>";
+            log_table.append(text_to_insert.join(''));
+            rows = log_table.children();
+            if (rows.length > maximum_logs)
+            {
+                rows.slice(0, 1).remove();
+            }
+            // top_of_page.animate({scrollTop:$(document).height()}, 100);
+        });
+
+        function send_heartbeat()
+        {
+            //socket.emit('pony', {});
+        }
+        setInterval(send_heartbeat, 1000);
+    });
+
+</script>
+
+<h2>Real time stream</h2>
+
+<p>
+    <table class="table table-condensed">
+        <tbody class="mono" id="log_table"></tbody>
+    </table>
+</p>
+
+{% include 'fragment_bottom.html' %}
+

@@ -10,6 +10,20 @@ ADD_SERVICE_URL = "%s/add_service" % (BASE_URL, )
 DELETE_SERVICE_URL = "%s/delete_service" % (BASE_URL, )
 GET_SERVICE_URL = "%s/get_service" % (BASE_URL, )
 
+# ----------------------------------------------------------------------------
+#   Signal handling
+# ----------------------------------------------------------------------------
+import signal
+def soft_handler(signum, frame):
+    logging.debug('Soft stop')
+    sys.exit(1)
+def hard_handler(signum, frame):
+    logging.debug('Hard stop')
+    os._exit(2)
+signal.signal(signal.SIGINT, soft_handler)
+signal.signal(signal.SIGTERM, hard_handler)
+# ----------------------------------------------------------------------------
+
 def test_list_of_services():
     r = requests.get(LIST_OF_SERVICES_URL)
     assert(r.status_code == 200)

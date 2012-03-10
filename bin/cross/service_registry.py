@@ -99,12 +99,12 @@ def main(port,
     logger.debug("port: %s" % (port, ))
     logger.debug("verbose: %s" % (verbose, ))
 
-    bottle.debug(True)
+    bottle.debug(False)
     bottle.run(host="0.0.0.0",
                port=port,
-               reloader=True,
+               reloader=False,
                interval=0.5,
-               server="auto")
+               server="tornado")
 
 if __name__ == "__main__":
     logger.debug("starting.")
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("--verbose",
                         dest="verbose",
                         action='store_true',
-                        default=True,
+                        default=False,
                         help="Enable verbose debug mode.")
     args = parser.parse_args()
     if args.verbose:
