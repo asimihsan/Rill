@@ -78,10 +78,58 @@
 
     $(document).ready(function()
     {
+        var top_of_page = $('body');
+        var log_table = $("#log_table");
         var is_connected = false;
         var socket;
         var hostname;
         var has_ever_connected = false;
+
+        var current_regexp_filter = new RegExp(".*", "ig");
+        var regexp_filter_element = $("#regexp_filter");
+        regexp_filter_element.val("");
+        var regexp_filter_control_group_element = $("#regexp_filter_control_group");
+        var regexp_interval_obj;
+        var regexp_timer_enabled = false;
+        
+        regexp_filter_element.keyup(function()
+        {
+            if (regexp_timer_enabled)
+            {
+                clearInterval(regexp_interval_obj);
+            }
+            regexp_interval_obj = setInterval(update_regexp, 1000);
+            regexp_timer_enabled = true;
+        });
+
+        function update_regexp()
+        {
+            clearInterval(regexp_interval_obj);
+            regexp_timer_enabled = false;
+            var text_val = regexp_filter_element.val();
+            try
+            {
+                var possible_regexp_filter = new RegExp(text_val, "ig");
+            }
+            catch (e)
+            {
+                regexp_filter_control_group_element.addClass("error");
+                return;
+            }
+            regexp_filter_control_group_element.removeClass("error");
+            current_regexp_filter = possible_regexp_filter;
+            log_table.children().each(function(index, element)
+            {
+                if (current_regexp_filter.test($(this).text()))
+                {
+                    $(this).css({'display': 'block'});
+                }
+                else
+                {
+                    $(this).css({'display': 'none'});
+                }
+            });
+        }
 
         $("#hostname").change(function()
         {
@@ -117,9 +165,7 @@
             is_connected = true;
             //socket.socket.reconnect();
 
-            var top_of_page = $('body');
-            var log_table = $("#log_table");
-            var maximum_logs = 1000;
+            var maximum_logs = 100000;
             socket.on('log', function(data)
             {
                 if (is_connected)
@@ -137,9 +183,14 @@
                     {
                         rows.slice(0, 1).remove();
                     }
+                    var last_child = rows.last();
+                    if (!current_regexp_filter.test(data.contents))
+                    {
+                        last_child.css({'display': 'none'});
+                    }
                     // top_of_page.animate({scrollTop:$(document).height()}, 100);
-                }
-            });
+                } // if is_connected
+            }); // on socket connect
         }
     });
 
@@ -163,6 +214,10 @@
             <option value="juza">NGMG - juza</option>
             <option value="rastaban">NGMG - rastaban</option>
         </select>
+    </div>
+    <div id="regexp_filter_control_group" class="control-group">
+        <label>Regular expression filter</label>
+        <input id="regexp_filter" name="regexp_filter" type="text" class="span3" placeholder="e.g. '.*' or '(failed|exception)'"></input>
     </div>
 </form>
 

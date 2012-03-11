@@ -41,6 +41,7 @@ class ServiceEncoder(json.JSONEncoder):
             return obj.get_dict_representation()
         return JSONEncode.default(self, obj)
 
+global data
 data = {}
 
 @bottle.route('/list_of_services')
