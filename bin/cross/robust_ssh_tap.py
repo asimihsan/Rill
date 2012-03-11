@@ -368,13 +368,16 @@ def main(masspinger_zeromq_binding,
 def start_process(command_line):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
     logger.debug("Starting: %s" % (command_line, ))
+    null_fp = open(os.devnull, "w")
     if platform.system() == "Linux":
-        proc = subprocess.Popen(command_line, shell=True)
+        proc = subprocess.Popen(command_line, shell=True, stdout=null_fp, stderr=null_fp)
     else:
         # To allow sending CTRL_C_EVENT signals to the process set
         # a Windows-only creation flag.
         proc = subprocess.Popen(command_line,
-                                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP)
+                                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP,
+                                stdout=null_fp,
+                                stderr=null_fp)
     return proc
 
 def terminate_process(process_object, process_name, kill=False):

@@ -557,6 +557,7 @@ class Process(object):
 def start_process(command_line, stdout_capture=False):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
     logger.debug("Starting: %s" % (command_line, ))
+    null_fp = open(os.devnull, "w")
     if platform.system() == "Linux":
         if stdout_capture:
             proc = subprocess.Popen(command_line,
@@ -565,7 +566,9 @@ def start_process(command_line, stdout_capture=False):
                                     stderr=subprocess.STDOUT)
         else:
             proc = subprocess.Popen(command_line,
-                                    shell=True)
+                                    shell=True,
+                                    stdout=null_fp,
+                                    stderr=null_fp)
     else:
         # To allow sending CTRL_C_EVENT signals to the process set
         # a Windows-only creation flag.
@@ -578,7 +581,9 @@ def start_process(command_line, stdout_capture=False):
         else:
             proc = subprocess.Popen(command_line,
                                     #shell=True,
-                                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP)
+                                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP,
+                                    stdout=null_fp,
+                                    stderr=null_fp)
     return proc
 
 def terminate_process(process_object, process_name, kill=False):
