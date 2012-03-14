@@ -5,8 +5,12 @@
 
 <form class="well" action="/full_text_search_results" method="post", enctype="multipart/form-data">
     <div class="control-group">
-        <label>What to search for</label>
-        <input name="search_string" type="text" class="span3" placeholder="Type something...">
+        <label>What to include</label>
+        <input name="include_search_string" type="text" class="span3" placeholder="Type something...">
+    </div>
+    <div class="control-group">
+        <label>What to exclude</label>
+        <input name="exclude_search_string" type="text" class="span3" placeholder="Type something...">
     </div>
     <div class="control-group">
         <label>Log type</label>
@@ -24,6 +28,7 @@
             <option value="six_hours">Six hours</option>
             <option value="one_day">One day</option>
             <option value="one_week">One week</option>
+            <option value="one_month">One month</option>
         </select>
     </div>
     <button type="submit" class="btn-primary">Submit</button>
