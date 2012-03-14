@@ -22,6 +22,7 @@ class Database(object):
     one_year = datetime.timedelta(days=365)
     one_week = datetime.timedelta(days=7)
     one_day = datetime.timedelta(days=1)
+    one_month = datetime.timedelta(days=31)
     three_days = datetime.timedelta(days=3)
     six_hours = datetime.timedelta(hours=6)
     one_hour = datetime.timedelta(hours=1)
@@ -111,7 +112,8 @@ class Database(object):
 
     def get_full_text_search_of_logs(self,
                                      collection,
-                                     search_argument,
+                                     include_search_argument,
+                                     exclude_search_argument = None,
                                      datetime_interval = None,
                                      fields_to_return = ["contents"],
                                      fields_to_ignore = ["_id"],
@@ -119,7 +121,10 @@ class Database(object):
         #if query_argument:
             #sub_queries = "{'keywords': {'$all': %s}}" % (elem, ) for elem in
             #query_part = {'keywords': {'$and':
-        query_part = {'keywords': {'$all': search_argument}}
+        search_part = {'$all': include_search_argument}
+        if exclude_search_argument:
+            search_part['$nin'] = exclude_search_argument
+        query_part = {'keywords': search_part}
         if not datetime_interval:
             datetime_interval = self.one_day
         start_datetime = datetime.datetime.utcnow() - datetime_interval
@@ -144,9 +149,9 @@ class Database(object):
                                  datetime_interval=None,
                                  fields_to_return = ["contents"],
                                  fields_to_ignore = ["_id"]):
-        search_argument = ['brain']
+        include_search_argument = ['brain']
         return self.get_full_text_search_of_logs(collection,
-                                                 search_argument,
+                                                 include_search_argument,
                                                  datetime_interval,
                                                  fields_to_return,
                                                  fields_to_ignore)
@@ -155,11 +160,11 @@ class Database(object):
                             collection,
                             datetime_interval = None):
         # Mar 3 15:11:36 emer_mf106-wrlinux daemon.alert SYSSTAT(memMonitor)[15381]: Memory check OK; free memory: 143676 kB (56%)
-        search_argument = ['memmonitor', 'free', 'memory']
+        include_search_argument = ['memmonitor', 'free', 'memory']
         if not datetime_interval:
             datetime_interval = self.three_days
         full_text_cursor = self.get_full_text_search_of_logs(collection = collection,
-                                                             search_argument = search_argument,
+                                                             include_search_argument = include_search_argument,
                                                              datetime_interval = datetime_interval,
                                                              fields_to_return = ['contents'],
                                                              fields_to_ignore = ['_id'])

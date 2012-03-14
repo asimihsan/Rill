@@ -294,12 +294,13 @@ def full_text_search_results():
     # ------------------------------------------------------------------------
 
     valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages"])
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week", "one_month"])
 
     if len(bottle.request.forms.items()) == 0:
         query_items = dict([elem.split("=", 1) for elem in urllib.unquote(bottle.request.query_string).split("&")])
         logger.debug("GET has no query args, so let's get them ourselves. %s" % (query_items, ))
-        search_string_encoded = query_items["search_string"]
+        include_search_string_encoded = query_items["include_search_string"]
+        exclude_search_string_encoded = query_items["exclude_search_string"]
         log_type_encoded = query_items["log_type"]
         datetime_interval_encoded = query_items["datetime_interval"]
     else:
@@ -308,15 +309,18 @@ def full_text_search_results():
         log_type_encoded = str(bottle.request.forms.get("log_type"))
         datetime_interval_encoded = str(bottle.request.forms.get("datetime_interval"))
 
-    logger.debug("search_string_encoded: %s" % (search_string_encoded, ))
+    logger.debug("include_search_string_encoded: %s" % (include_search_string_encoded, ))
+    logger.debug("exclude_search_string_encoded: %s" % (exclude_search_string_encoded, ))
     logger.debug("log_type_encoded: %s" % (log_type_encoded, ))
     logger.debug("datetime_interval_encoded: %s" % (datetime_interval_encoded, ))
 
-    search_string = base64.urlsafe_b64decode(str(search_string_encoded))
+    include_search_string = base64.urlsafe_b64decode(str(include_search_string_encoded))
+    exclude_search_string = base64.urlsafe_b64decode(str(exclude_search_string_encoded))
     log_type = base64.urlsafe_b64decode(str(log_type_encoded))
     datetime_interval = base64.urlsafe_b64decode(str(datetime_interval_encoded))
 
-    logger.debug("search_string: %s" % (search_string, ))
+    logger.debug("include_search_string: %s" % (include_search_string, ))
+    logger.debug("exclude_search_string: %s" % (exclude_search_string, ))
     logger.debug("log_type: %s" % (log_type, ))
     logger.debug("datetime_interval: %s" % (datetime_interval, ))
 
@@ -328,7 +332,7 @@ def full_text_search_results():
     #   Parse the search string.
     # ------------------------------------------------------------------------
     parser = QueryParser("content", None)
-    query = parser.parse(search_string)
+    query = parser.parse(include_search_string)
     if type(query) == whoosh.query.Or:
         logger.debug("query is OR type.")
         query_string = [(elem[1], ) for elem in query.all_terms()]
@@ -345,11 +349,17 @@ def full_text_search_results():
     #   Tokenize the search string.
     # ------------------------------------------------------------------------
     analyzer = StandardAnalyzer()
-    tokens = []
-    for elem in analyzer(unicode(search_string)):
-        tokens.append(elem.text)
-    tokens = list(set(tokens))
-    logger.debug("search_string: %s, log_type: %s, datetime_interval: %s, tokens: %s" % (search_string, log_type, datetime_interval, tokens))
+    include_tokens = []
+    for elem in analyzer(unicode(include_search_string)):
+        include_tokens.append(elem.text)
+    include_tokens = list(set(include_tokens))
+
+    exclude_tokens = []
+    for elem in analyzer(unicode(exclude_search_string)):
+        exclude_tokens.append(elem.text)
+    exclude_tokens = list(set(exclude_tokens))
+
+    logger.debug("include_search_string: %s, exclude_search_string: %s, log_type: %s, datetime_interval: %s, include_tokens: %s, exclude_tokens: %s" % (include_search_string, exclude_search_string, log_type, datetime_interval, include_tokens, exclude_tokens))
     # ------------------------------------------------------------------------
 
     datetime_interval_obj = getattr(db, datetime_interval)
@@ -359,7 +369,8 @@ def full_text_search_results():
     for collection_name in collection_names:
         collection = db.get_collection(collection_name)
         cursor = db.get_full_text_search_of_logs(collection = collection,
-                                                 search_argument = tokens,
+                                                 include_search_argument = include_tokens,
+                                                 exclude_search_argument = exclude_tokens,
                                                  datetime_interval = datetime_interval_obj,
                                                  query_argument = query_string)
         log_data.append((collection_name, cursor))
@@ -379,9 +390,10 @@ def full_text_search_results():
     #   Validate inputs.
     # ------------------------------------------------------------------------
     valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages"])
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week", "one_month"])
 
-    search_string = str(bottle.request.forms.get("search_string"))
+    include_search_string = str(bottle.request.forms.get("include_search_string"))
+    exclude_search_string = str(bottle.request.forms.get("exclude_search_string"))
     log_type = str(bottle.request.forms.get("log_type"))
     datetime_interval = str(bottle.request.forms.get("datetime_interval"))
 
@@ -389,10 +401,12 @@ def full_text_search_results():
     assert(datetime_interval in valid_intervals), "%s not in valid_intervals %s" % (datetime_interval, valid_intervals)
     # ------------------------------------------------------------------------
 
-    search_string_encoded = base64.urlsafe_b64encode(search_string)
+    include_search_string_encoded = base64.urlsafe_b64encode(include_search_string)
+    exclude_search_string_encoded = base64.urlsafe_b64encode(exclude_search_string)
     log_type_encoded = base64.urlsafe_b64encode(log_type)
     datetime_interval_encoded = base64.urlsafe_b64encode(datetime_interval)
-    data = {"search_string": search_string_encoded,
+    data = {"include_search_string": include_search_string_encoded,
+            "exclude_search_string": exclude_search_string_encoded,
             "log_type": log_type_encoded,
             "datetime_interval": datetime_interval_encoded}
     logger.debug("data: %s" % (data, ))

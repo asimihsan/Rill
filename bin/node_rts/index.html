@@ -61,11 +61,11 @@
                 <!-- Sidebar contents -->
                 <table class="table table-striped table-bordered table-condensed">
                     <tbody>
-                        <tr><td><a href="http://127.0.0.1:8080/ep_error_count">EP error count</a></td></tr>
-                        <tr><td><a href="http://127.0.0.1:8080/full_text_search">Full text search</a></td></tr>
-                        <tr><td><a href="http://127.0.0.1:8081/">Real time stream</a></td></tr>
-                        <tr><td><a href="http://127.0.0.1:8080/shm_memory_charts">ShM memory charts</a></td></tr>
-                        <tr><td><a href="http://127.0.0.1:8080/shm_split_brain">ShM split brain</a></td></tr>
+                        <tr><td><a href="http://mink:8080/ep_error_count">EP error count</a></td></tr>
+                        <tr><td><a href="http://mink:8080/full_text_search">Full text search</a></td></tr>
+                        <tr><td><a href="http://mink:8081/">Real time stream</a></td></tr>
+                        <tr><td><a href="http://mink:8080/shm_memory_charts">ShM memory charts</a></td></tr>
+                        <tr><td><a href="http://mink:8080/shm_split_brain">ShM split brain</a></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -91,6 +91,9 @@
         var regexp_filter_control_group_element = $("#regexp_filter_control_group");
         var regexp_interval_obj;
         var regexp_timer_enabled = false;
+
+        var hostname_select_element = $("#hostname_select");
+        hostname_select_element.addClass("warning");
         
         regexp_filter_element.keyup(function()
         {
@@ -141,6 +144,8 @@
                 $("#log_table").empty();
                 is_connected = false;
             }
+            hostname_select_element.removeClass("success");
+            hostname_select_element.addClass("warning");
             setTimeout(connect_to_real_time_server, 100);
         });
         $("#hostname").prop("selectedIndex", -1);
@@ -151,6 +156,7 @@
             if (!has_ever_connected)
             {
                 socket = io.connect("http://localhost:8081");
+                socket = io.connect(null,{'force new connection':true});
                 has_ever_connected = true;
             }
             else
@@ -161,9 +167,10 @@
             {
                 console.log("emitting hostname selection: " + hostname);
                 socket.emit("hostname_selection", JSON.stringify(hostname));
+                hostname_select_element.addClass("success");
+                hostname_select_element.removeClass("warning");
             });
             is_connected = true;
-            //socket.socket.reconnect();
 
             var maximum_logs = 100000;
             socket.on('log', function(data)
@@ -188,7 +195,10 @@
                     {
                         last_child.css({'display': 'none'});
                     }
-                    // top_of_page.animate({scrollTop:$(document).height()}, 100);
+                    if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
+                    {
+                        top_of_page.animate({scrollTop:$(document).height()}, 100);
+                    }
                 } // if is_connected
             }); // on socket connect
         }
@@ -199,7 +209,7 @@
 <h2>Real time stream</h2>
 
 <form class="well">
-    <div class="control-group">
+    <div id="hostname_select" class="control-group">
         <label>Hostname</label>
         <select name="hostname" id="hostname">
             <option value="andromeda">ShM - andromeda</option>
