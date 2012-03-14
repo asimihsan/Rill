@@ -22,6 +22,7 @@ import yaml
 import psutil
 import requests
 import socket
+import operator
 
 # -----------------------------------------------------------------------------
 #   Logging.
@@ -360,6 +361,7 @@ def main(verbose):
         if not box_config.valid:
             logger.error("Box config '%s' is not valid" % (box_config_filepath, ))
         box_configs.append(box_config)
+    box_configs.sort(key = operator.methodcaller("get_dns_hostname"))
 
     parser_configs = []
     for parser_config_filepath in parser_config_filepaths:
