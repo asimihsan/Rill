@@ -85,45 +85,105 @@
         var hostname;
         var has_ever_connected = false;
 
-        var current_regexp_filter = new RegExp(".*", "ig");
-        var regexp_filter_element = $("#regexp_filter");
-        regexp_filter_element.val("");
-        var regexp_filter_control_group_element = $("#regexp_filter_control_group");
-        var regexp_interval_obj;
-        var regexp_timer_enabled = false;
+        var current_include_regexp_filter = new RegExp(".*", "ig");
+        var include_regexp_filter_element = $("#include_regexp_filter");
+        include_regexp_filter_element.val(".*");
+        var include_regexp_filter_control_group_element = $("#include_regexp_filter_control_group");
+        var include_regexp_interval_obj;
+        var include_regexp_timer_enabled = false;
+
+        var current_exclude_regexp_filter = new RegExp("^$", "ig");
+        var exclude_regexp_filter_element = $("#exclude_regexp_filter");
+        exclude_regexp_filter_element.val("^$");
+        var exclude_regexp_filter_control_group_element = $("#exclude_regexp_filter_control_group");
+        var exclude_regexp_interval_obj;
+        var exclude_regexp_timer_enabled = false;
 
         var hostname_select_element = $("#hostname_select");
         hostname_select_element.addClass("warning");
         
-        regexp_filter_element.keyup(function()
+        include_regexp_filter_element.keyup(function()
         {
-            if (regexp_timer_enabled)
+            if (include_regexp_timer_enabled)
             {
-                clearInterval(regexp_interval_obj);
+                clearInterval(include_regexp_interval_obj);
             }
-            regexp_interval_obj = setInterval(update_regexp, 1000);
-            regexp_timer_enabled = true;
+            include_regexp_interval_obj = setInterval(update_regexp, 1000);
+            include_regexp_timer_enabled = true;
+        });
+
+        exclude_regexp_filter_element.keyup(function()
+        {
+            if (exclude_regexp_timer_enabled)
+            {
+                clearInterval(exclude_regexp_interval_obj);
+            }
+            exclude_regexp_interval_obj = setInterval(update_regexp, 1000);
+            exclude_regexp_timer_enabled = true;
         });
 
         function update_regexp()
         {
-            clearInterval(regexp_interval_obj);
-            regexp_timer_enabled = false;
-            var text_val = regexp_filter_element.val();
-            try
+            // ---------------------------------------------------------------
+            //  Update the include regular expression, if it was being
+            //  updated.
+            // ---------------------------------------------------------------
+            if (include_regexp_timer_enabled)
             {
-                var possible_regexp_filter = new RegExp(text_val, "ig");
+                clearInterval(include_regexp_interval_obj);
+                include_regexp_timer_enabled = false;
+                var text_val = include_regexp_filter_element.val();
+                if (text_val == "")
+                {
+                    text_val = ".*";
+                }
+                try
+                {
+                    var possible_include_regexp_filter = new RegExp(text_val, "ig");
+                    include_regexp_filter_control_group_element.removeClass("error");
+                    current_include_regexp_filter = possible_include_regexp_filter;
+                }
+                catch (e)
+                {
+                    include_regexp_filter_control_group_element.addClass("error");
+                }
             }
-            catch (e)
+            // ---------------------------------------------------------------
+
+            // ---------------------------------------------------------------
+            //  Update the exclude regular expression, if it was being
+            //  updated.
+            // ---------------------------------------------------------------
+            if (exclude_regexp_timer_enabled)
             {
-                regexp_filter_control_group_element.addClass("error");
-                return;
+                clearInterval(exclude_regexp_interval_obj);
+                exclude_regexp_timer_enabled = false;
+                var text_val = exclude_regexp_filter_element.val();
+                if (text_val == "")
+                {
+                    text_val = "^$";
+                }
+                try
+                {
+                    var possible_exclude_regexp_filter = new RegExp(text_val, "ig");
+                    exclude_regexp_filter_control_group_element.removeClass("error");
+                    current_exclude_regexp_filter = possible_exclude_regexp_filter;
+                }
+                catch (e)
+                {
+                    exclude_regexp_filter_control_group_element.addClass("error");
+                }
             }
-            regexp_filter_control_group_element.removeClass("error");
-            current_regexp_filter = possible_regexp_filter;
+            // ---------------------------------------------------------------
+
+            // ---------------------------------------------------------------
+            //  Re-apply both include and exclude regular expressions
+            //  to all log rows.
+            // ---------------------------------------------------------------
             log_table.children().each(function(index, element)
             {
-                if (current_regexp_filter.test($(this).text()))
+                if (current_include_regexp_filter.test($(this).text()) &&
+                    !current_exclude_regexp_filter.test($(this).text()))
                 {
                     $(this).css({'display': 'block'});
                 }
@@ -132,6 +192,7 @@
                     $(this).css({'display': 'none'});
                 }
             });
+            // ---------------------------------------------------------------
         }
 
         $("#hostname").change(function()
@@ -177,27 +238,33 @@
             {
                 if (is_connected)
                 {
-                    var text_to_insert = [];
-                    var i = 0;
-                    text_to_insert[i++] = "<tr style=\"background: "
-                    text_to_insert[i++] = data.color;
-                    text_to_insert[i++] = ";\"><td>";
-                    text_to_insert[i++] = data.contents;
-                    text_to_insert[i++] = "</td></tr>";
-                    log_table.append(text_to_insert.join(''));
+                    var text_to_insert = "";
+                    text_to_insert += "<li style=\"background: ";
+                    text_to_insert += data.color;
+                    text_to_insert += "; ";
+                    if ((current_include_regexp_filter.test(data.contents)) &&
+                        !(current_exclude_regexp_filter.test(data.contents)))
+                    {
+                        text_to_insert += "display: block;";
+                    }
+                    else
+                    {
+                        text_to_insert += "display: none;";
+                    }
+                    text_to_insert += "\">";
+                    text_to_insert +=  data.contents;
+                    text_to_insert += "</li>";
+                    log_table.append(text_to_insert);
+
                     rows = log_table.children();
                     if (rows.length > maximum_logs)
                     {
                         rows.slice(0, 1).remove();
                     }
-                    var last_child = rows.last();
-                    if (!current_regexp_filter.test(data.contents))
-                    {
-                        last_child.css({'display': 'none'});
-                    }
+
                     if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
                     {
-                        top_of_page.animate({scrollTop:$(document).height()}, 100);
+                        top_of_page.animate({scrollTop:$(document).height()}, 10);
                     }
                 } // if is_connected
             }); // on socket connect
@@ -225,17 +292,17 @@
             <option value="rastaban">NGMG - rastaban</option>
         </select>
     </div>
-    <div id="regexp_filter_control_group" class="control-group">
-        <label>Regular expression filter</label>
-        <input id="regexp_filter" name="regexp_filter" type="text" class="span3" placeholder="e.g. '.*' or '(failed|exception)'"></input>
+    <div id="include_regexp_filter_control_group" class="control-group">
+        <label>Include regular expression filter</label>
+        <input id="include_regexp_filter" name="include_regexp_filter" type="text" class="span3" placeholder="e.g. '.*' or '(failed|exception)'"></input>
+    </div>
+    <div id="exclude_regexp_filter_control_group" class="control-group">
+        <label>Exclude regular expression filter</label>
+        <input id="exclude_regexp_filter" name="exclude_regexp_filter" type="text" class="span3" placeholder="e.g. '^$' or '(callbacks)'"></input>
     </div>
 </form>
 
-<p>
-    <table class="table table-condensed">
-        <tbody class="mono" id="log_table"></tbody>
-    </table>
-</p>
+<p><ul class="unstyled mono" id="log_table"></ul></p>
 
 </div>
 </div>

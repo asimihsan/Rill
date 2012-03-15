@@ -10,18 +10,16 @@
 </ul>
 
 {% for (collection, cursor) in collections_and_cursors %}
-    {% if cursor.count() != 0 %}
+{% if cursor.count() != 0 %}
     <!-- <h3 id="{{ collection.name }}">{{ collection.name }}</h3> -->
-    <p id="{{ collection.name }}">
-        <table class="table table-condensed">
-            <tbody class="mono">
-                {% for row in cursor %}
-                <tr><td>{{ row["contents"] }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </p>
-    {% endif %}
+<p id="{{ collection.name }}">
+    <ul class="unstyled mono">
+    {% for row in cursor %}
+        <li>{{ row["contents"] }}</li>
+    {% endfor %}
+    </ul>
+</p>
+{% endif %}
 {% endfor %}
 
 {% include 'fragment_bottom.html' %}
