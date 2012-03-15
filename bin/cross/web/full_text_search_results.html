@@ -9,15 +9,13 @@
 </ul>
 {% for (collection_name, collection_lines) in log_data %}
 {% if collection_lines.count() > 0 %}
-    <p id="{{ collection_name }}">
-        <table class="table table-condensed">
-            <tbody class="mono">
-                {% for line in collection_lines %}
-                <tr><td>{{ line["contents"] }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </p>
+<p id="{{ collection_name }}">
+    <ul class="unstyled mono">
+        {% for line in collection_lines %}
+        <li>{{ line["contents"] }}</li>
+        {% endfor %}
+    </ul>
+</p>
 {% endif %}
 {% endfor %}
 
