@@ -139,6 +139,137 @@ def shm_memory_charts():
     for chunk in stream:
         yield chunk
 
+@bottle.route('/intel_error_count')
+def intel_error_count():
+    logger = logging.getLogger("%s.intel_error_count" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("intel_error_count:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    template = jinja2_env.get_template('intel_error_count.html')
+    stream = template.stream()
+    for chunk in stream:
+        yield chunk
+
+@bottle.route('/intel_error_count', method='POST')
+def intel_error_count():
+    logger = logging.getLogger("%s.intel_error_count_post" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("intel_error_count_post:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    # ------------------------------------------------------------------------
+    #   Validate inputs.
+    # ------------------------------------------------------------------------
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    datetime_interval = bottle.request.forms.get("datetime_interval")
+    assert(datetime_interval in valid_intervals)
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   Get raw results.
+    #   !!AI in time use map reduce. For now bang it out.
+    # ------------------------------------------------------------------------
+    datetime_interval_obj = getattr(db, datetime_interval)
+    log_type = "ngmg_ms_messages"
+    collection_names = sorted(db.get_collection_names(name_filter = log_type))
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   A document in a ms_messages collection, if it relates to an Intel
+    #   failure, will include the following two keys:
+    #
+    #   "failure_type" : "Assertion (trigger restart)",
+    #   "failure_id" : "'(!tcp_connection_failed)', file ../../../msw/code/dcim/dcimfsmi.c, line 455",
+    #
+    #   The catch is that, unlike EP error events, where we knew there
+    #   were two types of EP error event ('warning' and 'error'), I don't
+    #   want to make assumptions about the types of "failure_type" we could
+    #   encounter.
+    #
+    #   Hence, first step is to get a set of unique failure types
+    #   _within this time period_. If we agree to not know, a priori, what
+    #   Intel error events are possible, we only need to get unique
+    #   event types from our time period.
+    #
+    #   We're going to need two 'group' calls. One to gather 'failure_type'
+    #   and one to gather 'failure_id'. Expensive! Let's gevent.spawn
+    #   the whole lot and punt it.
+    # ------------------------------------------------------------------------
+    collections = [db.get_collection(collection_name) for collection_name in collection_names]
+    start_datetime = datetime.datetime.utcnow() - datetime_interval_obj
+    q_key_failure_id = {"failure_id": True}
+    q_condition_failure_id = {"failure_id": {"$exists": True},
+                              "datetime": {"$gt": start_datetime}}
+    q_initial_failure_id = {"count": 0}
+    q_reduce_failure_id = bson.Code("""function(document, aggregator)
+                                       {
+                                          aggregator.count += 1;
+                                       }""")
+    jobs = []
+    for collection in collections:
+        job = gevent.spawn(collection.group,
+                           key = q_key_failure_id,
+                           condition = q_condition_failure_id,
+                           initial = q_initial_failure_id,
+                           reduce = q_reduce_failure_id)
+        jobs.append(job)
+    gevent.joinall(jobs)
+    failure_id_to_count = {}
+    failure_id_to_collection = {}
+    for (collection_name, collection, job) in zip(collection_names, collections, jobs):
+        for result in job.value:
+            count = result["count"]
+            failure_id = result["failure_id"]
+
+            #!!AI hack, to work out poor parsing for now.
+            if ".  Total" not in failure_id:
+                failure_id_to_count[failure_id] = int(count)
+                failure_id_to_collection[failure_id] = collection
+    logger.debug("failure_id_to_count: \n%s" % (pprint.pformat(failure_id_to_count), ))
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   Go back and get failure_type for each failure_id.
+    # ------------------------------------------------------------------------
+    failure_id_to_failure_type = {}
+    jobs = []
+    for (failure_id, collection) in failure_id_to_collection.items():
+        job = gevent.spawn(collection.find_one,
+                           {"failure_id": failure_id})
+        jobs.append(job)
+    gevent.joinall(jobs)
+    for ((failure_id, collection), job) in zip(failure_id_to_collection.items(), jobs):
+        example_result = job.value
+        if example_result and "failure_type" in example_result:
+            failure_type = example_result["failure_type"]
+            #!!AI another hack, parsing once gave empty strings.
+            if failure_type != '':
+                failure_id_to_failure_type[failure_id] = failure_type
+    logger.debug("failure_id_to_failure_type: \n%s" % (pprint.pformat(failure_id_to_failure_type), ))
+
+    failure_type_to_failure_id = {}
+    for (failure_id, failure_type) in failure_id_to_failure_type.items():
+        current_failure_ids = failure_type_to_failure_id.get(failure_type, [])
+        current_failure_ids.append(failure_id)
+        failure_type_to_failure_id[failure_type] = current_failure_ids
+    logger.debug("failure_type_to_failure_id: \n%s" % (pprint.pformat(failure_type_to_failure_id), ))
+    # ------------------------------------------------------------------------
+
+    failure_type_to_count = {}
+    for (failure_id, failure_type) in failure_id_to_failure_type.items():
+        count = failure_id_to_count[failure_id]
+        failure_type_to_count[failure_type] = failure_type_to_count.get(failure_type, 0) + count
+    failure_types_and_counts = failure_type_to_count.items()
+    logger.debug("failure_types_and_counts: \n%s" % (pprint.pformat(failure_types_and_counts), ))
+
+    template = jinja2_env.get_template('intel_error_count_results.html')
+    stream = template.stream(failure_types_and_counts = failure_types_and_counts,
+                             failure_id_to_failure_type = failure_id_to_failure_type,
+                             failure_type_to_failure_id = failure_type_to_failure_id,
+                             failure_id_to_count = failure_id_to_count,
+                             datetime_interval = datetime_interval)
+    for chunk in stream:
+        yield chunk
+
 @bottle.route('/ep_error_instances')
 def ep_error_instances():
     logger = logging.getLogger("%s.ep_error_instances" % (APP_NAME, ))

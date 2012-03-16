@@ -1,0 +1,18 @@
+{% include 'fragment_top.html' %}
+
+<h2>Intel error count</h2>
+
+<form class="well" action="/intel_error_count" method="post", enctype="multipart/form-data">
+    <div class="control-group">
+        <label>Datetime interval</label>
+        <select name="datetime_interval" id="datetime_interval">
+            <option value="one_hour">One hour</option>
+            <option value="six_hours">Six hours</option>
+            <option value="one_day">One day</option>
+            <option value="one_week">One week</option>
+        </select>
+    </div>
+    <button type="submit" class="btn-primary">Submit</button>
+</form>
+
+{% include 'fragment_bottom.html' %}

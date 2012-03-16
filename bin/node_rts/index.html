@@ -63,6 +63,7 @@
                     <tbody>
                         <tr><td><a href="http://mink:8080/ep_error_count">EP error count</a></td></tr>
                         <tr><td><a href="http://mink:8080/full_text_search">Full text search</a></td></tr>
+                        <tr><td><a href="http://mink:8080/intel_error_count">Intel error count</a></td></tr>
                         <tr><td><a href="http://mink:8081/">Real time stream</a></td></tr>
                         <tr><td><a href="http://mink:8080/shm_memory_charts">ShM memory charts</a></td></tr>
                         <tr><td><a href="http://mink:8080/shm_split_brain">ShM split brain</a></td></tr>
@@ -101,6 +102,31 @@
 
         var hostname_select_element = $("#hostname_select");
         hostname_select_element.addClass("warning");
+
+        var pending_log_items = [];
+        var pending_log_item_chunk_size = 20;
+        var is_pending_log_item_append_running = false;
+        var pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
+        function pending_log_item_append()
+        {
+            if (is_pending_log_item_append_running)
+            {
+                return;
+            }
+            is_pending_log_item_append_running = true;
+            var items_appended = 0;
+            while ((pending_log_items.length > 0) && (items_appended < pending_log_item_chunk_size))
+            {
+                var new_item = pending_log_items.pop();
+                log_table.append(new_item);
+                items_appended += 1;
+                if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
+                {
+                    top_of_page.animate({scrollTop:$(document).height()}, 0);
+                }
+            }
+            is_pending_log_item_append_running = false;
+        }
         
         include_regexp_filter_element.keyup(function()
         {
@@ -185,7 +211,7 @@
                 if (current_include_regexp_filter.test($(this).text()) &&
                     !current_exclude_regexp_filter.test($(this).text()))
                 {
-                    $(this).css({'display': 'block'});
+                    $(this).css({'display': ''});
                 }
                 else
                 {
@@ -199,6 +225,7 @@
         {
             hostname = $("#hostname option:selected").val();
             console.log("hostname selection changes to: " + hostname);
+            pending_log_items = [];
             if (is_connected)
             {
                 socket.disconnect();
@@ -233,7 +260,6 @@
             });
             is_connected = true;
 
-            var maximum_logs = 100000;
             socket.on('log', function(data)
             {
                 if (is_connected)
@@ -245,7 +271,7 @@
                     if ((current_include_regexp_filter.test(data.contents)) &&
                         !(current_exclude_regexp_filter.test(data.contents)))
                     {
-                        text_to_insert += "display: block;";
+                        //text_to_insert += "display: block;";
                     }
                     else
                     {
@@ -254,18 +280,8 @@
                     text_to_insert += "\">";
                     text_to_insert +=  data.contents;
                     text_to_insert += "</li>";
-                    log_table.append(text_to_insert);
+                    pending_log_items.unshift(text_to_insert);
 
-                    rows = log_table.children();
-                    if (rows.length > maximum_logs)
-                    {
-                        rows.slice(0, 1).remove();
-                    }
-
-                    if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
-                    {
-                        top_of_page.animate({scrollTop:$(document).height()}, 10);
-                    }
                 } // if is_connected
             }); // on socket connect
         }

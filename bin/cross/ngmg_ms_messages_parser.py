@@ -143,18 +143,28 @@ class NgmgMsMessagesParserLogDatum(object):
         if "contents" not in current_return_value:
             return current_return_value
         contents = current_return_value["contents"]
-        if "failed: " not in contents:
+
+        if "failed: " in contents:
+            failure_string = contents.rsplit("]", 1)[-1].strip()
+            elems = failure_string.partition("failed: ")
+            failure_type = elems[0].strip()
+            failure_id = elems[-1].strip()
+            if ".  Total" in failure_id:
+                elems = failure_id.partition(".  Total")
+                failure_id = elems[0]
+            current_return_value["failure_type"] = failure_type
+            current_return_value["failure_id"] = failure_id
             return current_return_value
-        failure_string = contents.rsplit("]", 1)[-1].strip()
-        elems = failure_string.partition("failed: ")
-        failure_type = elems[0].strip()
-        failure_id = elems[-1].strip()
-        if ". Total" in failure_id:
-            elems = failure_id.partition(". Total")
-            failure_id = elems[0]
-        current_return_value["failure_type"] = failure_type
-        current_return_value["failure_id"] = failure_id
-        return current_return_value
+        elif "Unhandled exception. " in contents:
+            failure_string = contents.rsplit("]", 1)[-1].strip()
+            elems = failure_string.split("Unhandled exception. ")
+            failure_type = "Unhandled exception"
+            failure_id = elems[-1].strip()
+            current_return_value["failure_type"] = failure_type
+            current_return_value["failure_id"] = failure_id
+            return current_return_value
+        else:
+            return current_return_value
 
     analyzer = StandardAnalyzer()
     def tokenize(self, input):
