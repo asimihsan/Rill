@@ -113,17 +113,23 @@
             {
                 return;
             }
+            var at_bottom_of_screen = false;
+            if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
+            {
+                at_bottom_of_screen = true;
+            }
             is_pending_log_item_append_running = true;
             var items_appended = 0;
+            var chunk = "";
             while ((pending_log_items.length > 0) && (items_appended < pending_log_item_chunk_size))
             {
-                var new_item = pending_log_items.pop();
-                log_table.append(new_item);
+                chunk += pending_log_items.pop();
                 items_appended += 1;
-                if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
-                {
-                    top_of_page.animate({scrollTop:$(document).height()}, 0);
-                }
+            }
+            log_table.append(chunk);
+            if (at_bottom_of_screen)
+            {
+                top_of_page.animate({scrollTop:$(document).height()}, 0);
             }
             is_pending_log_item_append_running = false;
         }
