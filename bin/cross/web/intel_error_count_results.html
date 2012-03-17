@@ -4,13 +4,13 @@
 <h2>Intel error count results</h2>
 
 <ul>
-{% for (failure_type, count) in failure_types_and_counts %}
-    <li>{{ failure_type }}; {{ count }} instance(s)</li>
+{% for (friendly_failure_type, failure_type, count) in failure_types_and_counts %}
+    <li><a href="#{{ friendly_failure_type }}">{{ failure_type }}</a>; {{ count }} instance(s)</li>
 {% endfor %}
 </ul>
 
-{% for (failure_type, count) in failure_types_and_counts %}
-<h3>{{ failure_type }}</h3>
+{% for (friendly_failure_type, failure_type, count) in failure_types_and_counts %}
+<h3 id="{{ friendly_failure_type }}">{{ failure_type }}</h3>
 
 <p>
     <table class="table table-condensed">
@@ -21,12 +21,10 @@
             </tr>
         </thead>
         <tbody>
-            {% set failure_ids = failure_type_to_failure_id[failure_type] %}
-            {% for failure_id in failure_ids %}
-            {% set count = failure_id_to_count[failure_id] %}
+            {% for (failure_id, count) in sorted_failure_ids_and_counts[failure_type] %}
             <tr>
                 <td>{{ count }}</td>
-                <td class="mono">{{ failure_id }}</td>
+                <td class="mono"><a href="{{ failure_id_to_full_text_link[failure_id] }}">{{ failure_id }}</a></td>
             </tr>
             {% endfor %}
         </tbody>

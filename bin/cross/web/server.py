@@ -22,6 +22,7 @@ import datetime
 import base64
 import operator
 import urllib
+from string import Template
 
 #from real_time_stream import real_time_stream
 
@@ -258,14 +259,30 @@ def intel_error_count():
     for (failure_id, failure_type) in failure_id_to_failure_type.items():
         count = failure_id_to_count[failure_id]
         failure_type_to_count[failure_type] = failure_type_to_count.get(failure_type, 0) + count
-    failure_types_and_counts = failure_type_to_count.items()
+    failure_types_and_counts = sorted(failure_type_to_count.items(), key=operator.itemgetter(0))
+    failure_types_and_counts = [(base64.b64encode(failure_type), failure_type, count)
+                                for (failure_type, count) in failure_types_and_counts]
     logger.debug("failure_types_and_counts: \n%s" % (pprint.pformat(failure_types_and_counts), ))
+
+    sorted_failure_ids_and_counts = {}
+    for (friendly_failure_type, failure_type, count) in failure_types_and_counts:
+        failure_ids = failure_type_to_failure_id[failure_type]
+        failure_ids_and_counts = [(failure_id, failure_id_to_count[failure_id]) for failure_id in failure_ids]
+        sorted_elem = sorted(failure_ids_and_counts, key=operator.itemgetter(1), reverse=True)
+        sorted_failure_ids_and_counts[failure_type] = sorted_elem
+
+    failure_id_to_full_text_link = {}
+    link_template = Template(r"/full_text_search_results?include_search_string=${include_search_string}&datetime_interval=${datetime_interval}&log_type=${log_type}&exclude_search_string=")
+    for failure_id in failure_id_to_count:
+        link = link_template.substitute(include_search_string = base64.urlsafe_b64encode(failure_id),
+                                        datetime_interval = base64.urlsafe_b64encode(datetime_interval),
+                                        log_type = base64.urlsafe_b64encode(log_type))
+        failure_id_to_full_text_link[failure_id] = link
 
     template = jinja2_env.get_template('intel_error_count_results.html')
     stream = template.stream(failure_types_and_counts = failure_types_and_counts,
-                             failure_id_to_failure_type = failure_id_to_failure_type,
-                             failure_type_to_failure_id = failure_type_to_failure_id,
-                             failure_id_to_count = failure_id_to_count,
+                             sorted_failure_ids_and_counts = sorted_failure_ids_and_counts,
+                             failure_id_to_full_text_link = failure_id_to_full_text_link,
                              datetime_interval = datetime_interval)
     for chunk in stream:
         yield chunk

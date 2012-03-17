@@ -145,9 +145,8 @@ class NgmgMsMessagesParserLogDatum(object):
         contents = current_return_value["contents"]
 
         if "failed: " in contents:
-            failure_string = contents.rsplit("]", 1)[-1].strip()
-            elems = failure_string.partition("failed: ")
-            failure_type = elems[0].strip()
+            elems = contents.partition("failed: ")
+            failure_type = elems[0].strip().rsplit("]", 1)[-1].strip()
             failure_id = elems[-1].strip()
             if ".  Total" in failure_id:
                 elems = failure_id.partition(".  Total")
