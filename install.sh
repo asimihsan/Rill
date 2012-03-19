@@ -1,4 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# ----------------------------------------------------------------------------- 
+#   Notes:
+#   -   Building zlib from source will hose yum on Fedora. Don't do it.
+#       Symtiom is that yum segfaults, fix is to delete the libz* files.
+# ----------------------------------------------------------------------------- 
 
 INSTALL_GMP=0
 INSTALL_MPFR=0
