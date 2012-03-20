@@ -134,6 +134,9 @@ class NgmgShmMessagesParserLogDatum(object):
         return_value["second"] = str(datetime_obj.second)
         return_value["contents"] = self.string_input
         return_value["keywords"] = self.tokenize(return_value["contents"])
+        if "Assertion failed at" in return_value["contents"]:
+            elems = return_value["contents"].partition("Assertion failed at")
+            return_value["failure_id"] = elems[-1].strip()
         return return_value
 
     analyzer = StandardAnalyzer()
@@ -164,7 +167,7 @@ class NgmgShmMessagesParserLogDatum(object):
 
 if __name__ == "__main__":
     logger.debug("starting")
-    fields_to_index = ["datetime", "keywords"]
+    fields_to_index = ["datetime", "keywords", "failure_id"]
     try:
         base_parser.main(APP_NAME, NgmgShmMessagesParserLogDatum, fields_to_index)
     except KeyboardInterrupt:

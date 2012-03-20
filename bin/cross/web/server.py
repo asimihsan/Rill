@@ -140,6 +140,93 @@ def shm_memory_charts():
     for chunk in stream:
         yield chunk
 
+@bottle.route('/shm_error_count')
+def shm_error_count():
+    logger = logging.getLogger("%s.shm_error_count" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("shm_error_count:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    template = jinja2_env.get_template('shm_error_count.html')
+    stream = template.stream()
+    for chunk in stream:
+        yield chunk
+
+@bottle.route('/shm_error_count', method='POST')
+def shm_error_count():
+    logger = logging.getLogger("%s.shm_error_count_post" % (APP_NAME, ))
+    logger.debug("entry.")
+    access_logger.debug("shm_error_count_post:\n%s" % (pprint.pformat(sorted(bottle.request.items(), key=operator.itemgetter(0))), ))
+
+    # ------------------------------------------------------------------------
+    #   Validate inputs.
+    # ------------------------------------------------------------------------
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    datetime_interval = bottle.request.forms.get("datetime_interval")
+    assert(datetime_interval in valid_intervals)
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   Get raw results.
+    #   !!AI in time use map reduce. For now bang it out.
+    # ------------------------------------------------------------------------
+    datetime_interval_obj = getattr(db, datetime_interval)
+    log_type = "ngmg_shm_messages"
+    collection_names = sorted(db.get_collection_names(name_filter = log_type))
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
+    #   A document in a ms_messages collection, if it relates to a ShM
+    #   failure, will include the following key:
+    #
+    #   "failure_id" : "../../../infra/code/shsysmon/shdamhpi.c:147 - (sahpi_rc == (SaErrorT)0x0000)",
+    #
+    #   ShMs do not currently have types of error, just asserts.
+    # ------------------------------------------------------------------------
+    collections = [db.get_collection(collection_name) for collection_name in collection_names]
+    start_datetime = datetime.datetime.utcnow() - datetime_interval_obj
+    q_key_failure_id = {"failure_id": True}
+    q_condition_failure_id = {"failure_id": {"$exists": True},
+                              "datetime": {"$gt": start_datetime}}
+    q_initial_failure_id = {"count": 0}
+    q_reduce_failure_id = bson.Code("""function(document, aggregator)
+                                       {
+                                          aggregator.count += 1;
+                                       }""")
+    jobs = []
+    for collection in collections:
+        job = gevent.spawn(collection.group,
+                           key = q_key_failure_id,
+                           condition = q_condition_failure_id,
+                           initial = q_initial_failure_id,
+                           reduce = q_reduce_failure_id)
+        jobs.append(job)
+    gevent.joinall(jobs)
+    failure_id_to_count = {}
+    failure_id_to_collection = {}
+    for (collection_name, collection, job) in zip(collection_names, collections, jobs):
+        for result in job.value:
+            count = result["count"]
+            failure_id = result["failure_id"]
+            failure_id_to_count[failure_id] = int(count)
+            failure_id_to_collection[failure_id] = collection
+    failure_ids_and_counts = sorted(failure_id_to_count.items(), key=operator.itemgetter(1))
+    logger.debug("failure_id_and_count: \n%s" % (pprint.pformat(failure_ids_and_counts), ))
+    # ------------------------------------------------------------------------
+
+    failure_id_to_full_text_link = {}
+    link_template = Template(r"/full_text_search_results?include_search_string=${include_search_string}&datetime_interval=${datetime_interval}&log_type=${log_type}&exclude_search_string=")
+    for failure_id in failure_id_to_count:
+        link = link_template.substitute(include_search_string = base64.urlsafe_b64encode(failure_id),
+                                        datetime_interval = base64.urlsafe_b64encode(datetime_interval),
+                                        log_type = base64.urlsafe_b64encode(log_type))
+        failure_id_to_full_text_link[failure_id] = link
+    template = jinja2_env.get_template('shm_error_count_results.html')
+    stream = template.stream(failure_ids_and_counts = failure_ids_and_counts,
+                             failure_id_to_full_text_link = failure_id_to_full_text_link,
+                             datetime_interval = datetime_interval)
+    for chunk in stream:
+        yield chunk
+
 @bottle.route('/intel_error_count')
 def intel_error_count():
     logger = logging.getLogger("%s.intel_error_count" % (APP_NAME, ))
