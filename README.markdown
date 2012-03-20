@@ -19,6 +19,8 @@ Non-functional requirements:
 BUGS
 ----
 
+-   Linux box spontaneously lost the path to libzmq.so, so ssh_tap couldn't run. Hilarious, but surely there should be a sniff test that does basic functional verification regularly to confirm components work.
+
 -   parsers stop reading in output from ssh_tap via SUBSCRIBE after a while. Why? ssh_tap says it's PUBLISHing it. Does this happen when ssh_tap restarts? Does ZeroMQ SUBSCRIBE just stop working? It's a blocking recv() call...maybe we should restart the parser instance when ssh_tap is restarted?
 
 -   If an ssh_tap is outputting so much data that a parser subscriber cannot keep up, the ZeroMQ SUBSCRIBE binding, by default, keeps all pending messages in memory. This leads to memory increasing indefinitely. Want to adjust the SUBSCRIBE binding to have a finite high water mark and either keep them in swap memory or discard messages.
