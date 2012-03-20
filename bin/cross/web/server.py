@@ -207,7 +207,7 @@ def shm_error_count():
         for result in job.value:
             count = result["count"]
             failure_id = result["failure_id"]
-            failure_id_to_count[failure_id] = int(count)
+            failure_id_to_count[failure_id] = failure_id_to_count.get(failure_id, 0) + int(count)
             failure_id_to_collection[failure_id] = collection
     failure_ids_and_counts = sorted(failure_id_to_count.items(), key=operator.itemgetter(1), reverse=True)
     logger.debug("failure_id_and_count: \n%s" % (pprint.pformat(failure_ids_and_counts), ))
@@ -310,7 +310,7 @@ def intel_error_count():
 
             #!!AI hack, to work out poor parsing for now.
             if ".  Total" not in failure_id:
-                failure_id_to_count[failure_id] = int(count)
+                failure_id_to_count[failure_id] = failure_id_to_count.get(failure_id, 0) + int(count)
                 failure_id_to_collection[failure_id] = collection
     logger.debug("failure_id_to_count: \n%s" % (pprint.pformat(failure_id_to_count), ))
     # ------------------------------------------------------------------------
