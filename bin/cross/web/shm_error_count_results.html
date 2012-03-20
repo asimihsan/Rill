@@ -1,0 +1,27 @@
+
+{% include 'fragment_top.html' %}
+
+<h2>ShM error count results</h2>
+
+<h3>Failed assertions</h3>
+
+<p>
+    <table class="table table-condensed">
+        <thead>
+            <tr>
+                <th>Count</th>
+                <th>ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for (failure_id, count) in failure_ids_and_counts %}
+            <tr>
+                <td>{{ count }}</td>
+                <td class="mono"><a href="{{ failure_id_to_full_text_link[failure_id] }}">{{ failure_id }}</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</p>
+
+{% include 'fragment_bottom.html' %}
