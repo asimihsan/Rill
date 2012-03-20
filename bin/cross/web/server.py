@@ -209,7 +209,7 @@ def shm_error_count():
             failure_id = result["failure_id"]
             failure_id_to_count[failure_id] = int(count)
             failure_id_to_collection[failure_id] = collection
-    failure_ids_and_counts = sorted(failure_id_to_count.items(), key=operator.itemgetter(1))
+    failure_ids_and_counts = sorted(failure_id_to_count.items(), key=operator.itemgetter(1), reverse=True)
     logger.debug("failure_id_and_count: \n%s" % (pprint.pformat(failure_ids_and_counts), ))
     # ------------------------------------------------------------------------
 
