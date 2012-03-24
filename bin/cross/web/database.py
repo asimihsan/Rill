@@ -162,7 +162,7 @@ class Database(object):
         # Mar 3 15:11:36 emer_mf106-wrlinux daemon.alert SYSSTAT(memMonitor)[15381]: Memory check OK; free memory: 143676 kB (56%)
         include_search_argument = ['memmonitor', 'free', 'memory']
         if not datetime_interval:
-            datetime_interval = self.three_days
+            datetime_interval = self.one_week
         full_text_cursor = self.get_full_text_search_of_logs(collection = collection,
                                                              include_search_argument = include_search_argument,
                                                              datetime_interval = datetime_interval,

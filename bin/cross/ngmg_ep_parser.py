@@ -150,12 +150,13 @@ class NgmgEpParserLogDatum(object):
             error_level = "error"
         elif logger_id_with_stars.startswith("*"):
             error_level = "warning"
-        else:
-            error_level = "none"
-        return_value["error_level"] = error_level
-        possible_error_id_match = re.search("\[(.*?)\]", contents)
-        if possible_error_id_match:
-            return_value["error_id"] = possible_error_id_match.groups()[0]
+        if logger_id_with_starts.startswith("*"):
+            possible_error_id_match = re.search("\[(.*?)\]", contents)
+            if possible_error_id_match:
+                error_id = possible_error_id_match.groups()[0]
+                if ".cpp:" in error_id:
+                    return_value["error_level"] = error_level
+                    return_value["error_id"] = error_id
 
         return return_value
 
