@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 # ---------------------------------------------------------------------------
 # Copyright (c) 2011 Asim Ihsan (asim dot ihsan at gmail dot com)
 # Distributed under the MIT/X11 software license, see the accompanying
