@@ -150,7 +150,7 @@ class NgmgEpParserLogDatum(object):
             error_level = "error"
         elif logger_id_with_stars.startswith("*"):
             error_level = "warning"
-        if logger_id_with_starts.startswith("*"):
+        if logger_id_with_stars.startswith("*"):
             possible_error_id_match = re.search("\[(.*?)\]", contents)
             if possible_error_id_match:
                 error_id = possible_error_id_match.groups()[0]
