@@ -190,7 +190,7 @@
                 }
                 try
                 {
-                    var possible_include_regexp_filter = new RegExp(text_val, "ig");
+                    var possible_include_regexp_filter = new RegExp(text_val, "i");
                     include_regexp_filter_control_group_element.removeClass("error");
                     current_include_regexp_filter = possible_include_regexp_filter;
                 }
@@ -216,7 +216,7 @@
                 }
                 try
                 {
-                    var possible_exclude_regexp_filter = new RegExp(text_val, "ig");
+                    var possible_exclude_regexp_filter = new RegExp(text_val, "i");
                     exclude_regexp_filter_control_group_element.removeClass("error");
                     current_exclude_regexp_filter = possible_exclude_regexp_filter;
                 }
@@ -233,10 +233,12 @@
             // ---------------------------------------------------------------
             log_table.children().each(function(index, element)
             {
-                if (current_include_regexp_filter.test($(this).text()) &&
-                    !current_exclude_regexp_filter.test($(this).text()))
+                var text = $(this).text();
+                var is_included = current_include_regexp_filter.test(text);
+                var is_excluded = current_exclude_regexp_filter.test(text);
+                if ((is_included == true) && (is_excluded == false))
                 {
-                    $(this).css({'display': ''});
+                    $(this).css({'display': 'block'});
                 }
                 else
                 {
@@ -296,7 +298,7 @@
                     if ((current_include_regexp_filter.test(data.contents)) &&
                         !(current_exclude_regexp_filter.test(data.contents)))
                     {
-                        //text_to_insert += "display: block;";
+                        text_to_insert += "display: block;";
                     }
                     else
                     {
