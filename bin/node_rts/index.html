@@ -107,7 +107,7 @@
                 var hostname_select_id = "hostname_select_" + instance_number;
                 var hostname_id = "hostname_" + instance_number;
                 var include_regexp_filter_control_group_id = "include_regexp_filter_control_group_" + instance_number;
-                var include_regexp_filter_id = "include_regexp_filter_id_" + instance_number;
+                var include_regexp_filter_id = "include_regexp_filter_" + instance_number;
                 var exclude_regexp_filter_control_group_id = "exclude_regexp_filter_control_group_" + instance_number;
                 var exclude_regexp_filter_id = "exclude_regexp_filter_" + instance_number;
                 var maximum_number_of_logs_control_group_id = "maximum_number_of_logs_control_group_" + instance_number;
@@ -229,6 +229,8 @@
                 exclude_regexp_filter_element.val("^$");
                 var exclude_regexp_interval_obj;
                 var exclude_regexp_timer_enabled = false;
+
+                update_regexp();
 
                 hostname_select_element.addClass("warning");
 
