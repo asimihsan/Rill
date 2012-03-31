@@ -18,6 +18,7 @@ import argparse
 
 # !!AI hacks
 import database
+from utilities import retry
 
 APP_NAME = "masspinger_tap"
 import logging
@@ -42,6 +43,15 @@ def hard_handler(signum, frame):
 signal.signal(signal.SIGINT, soft_handler)
 signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
+
+@retry()
+def get_database(database_name):
+    db = database.Database(database_name)
+    return db
+
+@retry()
+def insert_into_database(collection, data_to_store):
+    collection.insert(data_to_store)
 
 if __name__ == "__main__":
     logger.debug("starting")
@@ -80,7 +90,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
 
     if args.database:
-        db = database.Database(args.database)
+        db = get_database(args.database)
     try:
         while 1:
             #logger.debug("tick")
@@ -98,9 +108,8 @@ if __name__ == "__main__":
                 collection_name = "%s_pings" % (hostname, )
                 collection = db.get_collection(collection_name)
                 db.ensure_index(collection_name, "datetime")
-                #db.ensure_index(collection_name, "hostname", index_type = None)
                 logger.debug("Putting: %s" % (data_to_store, ))
-                collection.insert(data_to_store)
+                insert_into_database(collection, data_to_store)
             # ----------------------------------------------------------------
     except KeyboardInterrupt:
         logger.debug("CTRL-C")

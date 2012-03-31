@@ -65,7 +65,7 @@ def main():
         logger.debug("database_name: %s" % (database_name, ))
         top_db = database.Database(database_name = database_name)
         write_database = top_db.write_database
-        collection_names = write_database.collection_names()
+        collection_names = sorted(write_database.collection_names())
         if "system.indexes" in collection_names:
             collection_names.remove("system.indexes")
         if database_name == "mv_trees":
@@ -87,4 +87,8 @@ def main():
                 logger.debug("remove_rc: %s" % (remove_rc, ))
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except:
+        logger.exception("Unhandled exception.")
+

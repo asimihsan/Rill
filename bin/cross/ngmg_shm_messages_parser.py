@@ -18,9 +18,6 @@ import argparse
 import hashlib
 import base64
 
-# !!AI hacks
-import database
-
 from whoosh.analysis import FancyAnalyzer
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.analysis import StandardAnalyzer

@@ -1,5 +1,6 @@
 import datetime
 import pymongo
+from utilities import retry
 
 import time
 import functools
@@ -7,8 +8,7 @@ import functools
 # -----------------------------------------------------------------------------
 #   Database constants.
 # -----------------------------------------------------------------------------
-master_hostname = "magpie"
-slave_hostnames = ["magpie", "mink", "rabbit", "rat"]
+servers = ["magpie:27017", "mink:27017", "rabbit:27107", "rat:27107"]
 # -----------------------------------------------------------------------------
 
 class Database(object):
@@ -24,21 +24,29 @@ class Database(object):
     def __init__(self, database_name=None):
         if not database_name:
             database_name = "logs"
-        self.write_connection = pymongo.Connection(master_hostname)
-        self.write_database = self.write_connection[database_name]
 
-        self.read_connection = pymongo.Connection(slave_hostnames)
-        self.read_database = self.read_connection[database_name]
+        self.connection = pymongo.ReplicaSetConnection(",".join(servers), replicaSet='rill')
+        self.connection.read_preference = pymongo.ReadPreference.SECONDARY
+        self.read_connection = self.connection
+        self.write_connection = self.connection
 
+        self.database = self.write_connection[database_name]
+        self.write_database = self.database
+        self.read_database = self.database
+
+    @retry()
     def get_collection(self, collection_name):
         return self.write_database[collection_name]
 
+    @retry()
     def get_read_collection(self, collection_name):
         return self.read_database[collection_name]
 
+    @retry()
     def create_index(self, collection_name, field, index_type=pymongo.DESCENDING):
         return self.ensure_index(collection_name, field, index_type)
 
+    @retry()
     def ensure_index(self, collection_name, field, index_type=pymongo.DESCENDING):
         collection = self.write_database[collection_name]
         if not index_type:
@@ -47,6 +55,7 @@ class Database(object):
             index = [(field, index_type)]
         return collection.ensure_index(index)
 
+    @retry()
     def get_all_items_from_collection_newer_than(self,
                                                  collection_name,
                                                  datetime_interval,
