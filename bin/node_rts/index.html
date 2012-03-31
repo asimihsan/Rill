@@ -21,7 +21,8 @@
 
   <!-- Place favicon.ico and apple-touch-icon.png in the root directory: mathiasbynens.be/notes/touch-icons -->
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css" />
+  <link type="text/css" href="css/jquery-ui-1.8.18.custom.css" rel="stylesheet" /> 
   <link rel="author" href="/humans.txt" />
 
   <!-- More ideas for your <head> here: h5bp.com/d/head-Tips -->
@@ -34,6 +35,7 @@
   <!-- Internet Explorer sucks. Add JSON because it sucks so hard. -->
   <!--[if lt IE 9]> <script src="js/libs/json2.js"></script> <![endif]-->
   <script src="js/libs/jquery-1.7.1.min.js"></script>
+  <script src="js/libs/jquery-ui-1.8.18.custom.min.js"></script>
   <script src="js/libs/bootstrap.min.js"></script>
 
 </head>
@@ -77,283 +79,370 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+    $(document).ready(function() {
 
-    $(document).ready(function()
-    {
-        var top_of_page = $('html, body');
-        var log_table = $("#log_table");
-        var is_connected = false;
-        var socket;
-        var hostname;
-        var has_ever_connected = false;
+        // Detach this. We don't want to display it, and we're going to duplicate
+        // it once per dialog.
+        var base_dialog_contents = $("#base_dialog_contents").detach();
 
-        var current_include_regexp_filter = new RegExp(".*", "ig");
-        var include_regexp_filter_element = $("#include_regexp_filter");
-        include_regexp_filter_element.val(".*");
-        var include_regexp_filter_control_group_element = $("#include_regexp_filter_control_group");
-        var include_regexp_interval_obj;
-        var include_regexp_timer_enabled = false;
+        // -------------------------------------------------------------------
+        // Interleaver class. Wraps around a given dialog box.
+        // -------------------------------------------------------------------
+        var interleaver_instance_counter = 0;
+        var Interleaver = {
+            createNew: function() {
+                var interleaver = {};
 
-        var current_exclude_regexp_filter = new RegExp("^$", "ig");
-        var exclude_regexp_filter_element = $("#exclude_regexp_filter");
-        exclude_regexp_filter_element.val("^$");
-        var exclude_regexp_filter_control_group_element = $("#exclude_regexp_filter_control_group");
-        var exclude_regexp_interval_obj;
-        var exclude_regexp_timer_enabled = false;
+                // -----------------------------------------------------------
+                //  Javascript local variables.
+                // -----------------------------------------------------------
+                var instance_number = interleaver_instance_counter;
+                interleaver_instance_counter++;
+                var dialog_contents_id = "dialog_contents_" + instance_number;
+                var dialog_inner_contents_id = "dialog_inner_contents_" + instance_number;
+                var hostname_select_id = "hostname_select_" + instance_number;
+                var hostname_id = "hostname_" + instance_number;
+                var include_regexp_filter_control_group_id = "include_regexp_filter_control_group_" + instance_number;
+                var include_regexp_filter_id = "include_regexp_filter_id_" + instance_number;
+                var exclude_regexp_filter_control_group_id = "exclude_regexp_filter_control_group_" + instance_number;
+                var exclude_regexp_filter_id = "exclude_regexp_filter_" + instance_number;
+                var log_table_dialog_id = "log_table_dialog_" + instance_number;
+                var log_table_id = "log_table_" + instance_number;
+                // -----------------------------------------------------------
 
-        var hostname_select_element = $("#hostname_select");
-        hostname_select_element.addClass("warning");
+                // -----------------------------------------------------------
+                //  JQuery DOM local variables.
+                // -----------------------------------------------------------
 
-        var pending_log_items = [];
-        var pending_log_item_chunk_size = 20;
-        var is_pending_log_item_append_running = false;
-        var pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
-        function pending_log_item_append()
-        {
-            if (is_pending_log_item_append_running)
-            {
-                return;
-            }
-            var at_bottom_of_screen = false;
-            if ($(window).scrollTop() + $(window).height() > $(document).height() - 100)
-            {
-                at_bottom_of_screen = true;
-            }
-            is_pending_log_item_append_running = true;
-            var items_appended = 0;
-            var chunk = "";
-            while ((pending_log_items.length > 0) && (items_appended < pending_log_item_chunk_size))
-            {
-                chunk += pending_log_items.pop();
-                items_appended += 1;
-            }
-            log_table.append(chunk);
-            if (at_bottom_of_screen)
-            {
-                top_of_page.animate({scrollTop:$(document).height()}, 0);
-            }
-            is_pending_log_item_append_running = false;
-        }
-        
-        include_regexp_filter_element.keyup(function(event)
-        {
-            if (include_regexp_timer_enabled)
-            {
-                clearInterval(include_regexp_interval_obj);
-            }
-            include_regexp_timer_enabled = true;
-            var interval;
-            if (event.which == 13)
-            {
-                interval = 0;
-            }
-            else
-            {
-                interval = 1000;
-            }
-            include_regexp_interval_obj = setInterval(update_regexp, interval);
-        });
+                // Clone the base dialog and replace all the known IDs with
+                // new unique IDs based on our instance number.
+                var dialog_contents = base_dialog_contents.clone();
 
-        exclude_regexp_filter_element.keyup(function(event)
-        {
-            if (exclude_regexp_timer_enabled)
-            {
-                clearInterval(exclude_regexp_interval_obj);
-            }
-            exclude_regexp_timer_enabled = true;
-            var interval;
-            if (event.which == 13)
-            {
-                interval = 0;
-            }
-            else
-            {
-                interval = 1000;
-            }
-            exclude_regexp_interval_obj = setInterval(update_regexp, interval);
-        });
+                // Select the root node and set its ID to a unique value.
+                dialog_contents.filter(":first").attr('id', dialog_contents_id);
 
-        function update_regexp()
-        {
-            // ---------------------------------------------------------------
-            //  Update the include regular expression, if it was being
-            //  updated.
-            // ---------------------------------------------------------------
-            if (include_regexp_timer_enabled)
-            {
-                clearInterval(include_regexp_interval_obj);
-                include_regexp_timer_enabled = false;
-                var text_val = include_regexp_filter_element.val();
-                if (text_val == "")
+                // Find all child elements with IDs and set them to unique values too.
+                dialog_contents.find('[id]').each(function(index, element) {
+                    var current_id = $(this).attr('id');
+                    var new_id = current_id + "_" + instance_number;
+                    $(this).attr('id', new_id);
+                    console.log("new id is: " + new_id);
+                });
+                dialog_contents.appendTo("#dialog_insert_point");
+
+                var dialog_contents_element = $("#" + dialog_contents_id);
+                var dialog_inner_contents_element = $("#" + dialog_inner_contents_id);
+                var hostname_select_element = $("#" + hostname_select_id);
+                var hostname_element = $("#" + hostname_id);
+                var include_regexp_filter_control_group_element = $("#" + include_regexp_filter_control_group_id);
+                var include_regexp_filter_element = $("#" + include_regexp_filter_id);
+                var exclude_regexp_filter_control_group_element = $("#" + exclude_regexp_filter_control_group_id);
+                var exclude_regexp_filter_element = $("#" + exclude_regexp_filter_id);
+                var log_table_dialog_element = $("#" + log_table_dialog_id);
+                var log_table_element = $("#" + log_table_id);
+
+                dialog_contents_element.dialog({
+                    close: function(event, ui) {
+                        console.log("dialog is closing, so trigger disconnect.");
+                        disconnect();
+                    }
+                });
+
+                var wrapping_dialog = dialog_contents_element.closest('.ui-dialog');
+                // -----------------------------------------------------------
+
+                var is_connected = false;
+                var socket;
+                var hostname;
+                var has_ever_connected = false;
+
+                var current_include_regexp_filter = new RegExp(".*", "ig");
+                include_regexp_filter_element.val(".*");
+                var include_regexp_interval_obj;
+                var include_regexp_timer_enabled = false;
+
+                var current_exclude_regexp_filter = new RegExp("^$", "ig");
+                exclude_regexp_filter_element.val("^$");
+                var exclude_regexp_interval_obj;
+                var exclude_regexp_timer_enabled = false;
+
+                hostname_select_element.addClass("warning");
+
+                var pending_log_items = [];
+                var pending_log_item_chunk_size = 20;
+                var pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
+                function pending_log_item_append()
                 {
-                    text_val = ".*";
-                }
-                try
-                {
-                    var possible_include_regexp_filter = new RegExp(text_val, "i");
-                    include_regexp_filter_control_group_element.removeClass("error");
-                    current_include_regexp_filter = possible_include_regexp_filter;
-                }
-                catch (e)
-                {
-                    include_regexp_filter_control_group_element.addClass("error");
-                }
-            }
-            // ---------------------------------------------------------------
-
-            // ---------------------------------------------------------------
-            //  Update the exclude regular expression, if it was being
-            //  updated.
-            // ---------------------------------------------------------------
-            if (exclude_regexp_timer_enabled)
-            {
-                clearInterval(exclude_regexp_interval_obj);
-                exclude_regexp_timer_enabled = false;
-                var text_val = exclude_regexp_filter_element.val();
-                if (text_val == "")
-                {
-                    text_val = "^$";
-                }
-                try
-                {
-                    var possible_exclude_regexp_filter = new RegExp(text_val, "i");
-                    exclude_regexp_filter_control_group_element.removeClass("error");
-                    current_exclude_regexp_filter = possible_exclude_regexp_filter;
-                }
-                catch (e)
-                {
-                    exclude_regexp_filter_control_group_element.addClass("error");
-                }
-            }
-            // ---------------------------------------------------------------
-
-            // ---------------------------------------------------------------
-            //  Re-apply both include and exclude regular expressions
-            //  to all log rows.
-            // ---------------------------------------------------------------
-            log_table.children().each(function(index, element)
-            {
-                var text = $(this).text();
-                var is_included = current_include_regexp_filter.test(text);
-                var is_excluded = current_exclude_regexp_filter.test(text);
-                if ((is_included == true) && (is_excluded == false))
-                {
-                    $(this).css({'display': 'block'});
-                }
-                else
-                {
-                    $(this).css({'display': 'none'});
-                }
-            });
-            // ---------------------------------------------------------------
-        }
-
-        $("#hostname").change(function()
-        {
-            hostname = $("#hostname option:selected").val();
-            console.log("hostname selection changes to: " + hostname);
-            pending_log_items = [];
-            if (is_connected)
-            {
-                socket.disconnect();
-                $("#log_table").empty();
-                is_connected = false;
-            }
-            hostname_select_element.removeClass("success");
-            hostname_select_element.addClass("warning");
-            setTimeout(connect_to_real_time_server, 100);
-        });
-        $("#hostname").prop("selectedIndex", -1);
-
-        function connect_to_real_time_server()
-        {
-            console.log("connect_to_real_time_server entry for hostname: " + hostname);
-            if (!has_ever_connected)
-            {
-                socket = io.connect("http://localhost:8081");
-                socket = io.connect(null,{'force new connection':true});
-                has_ever_connected = true;
-            }
-            else
-            {
-                socket = io.connect(null,{'force new connection':true});
-            }
-            socket.on('hostname_selection', function()
-            {
-                console.log("emitting hostname selection: " + hostname);
-                socket.emit("hostname_selection", JSON.stringify(hostname));
-                hostname_select_element.addClass("success");
-                hostname_select_element.removeClass("warning");
-            });
-            is_connected = true;
-
-            socket.on('log', function(data)
-            {
-                if (is_connected)
-                {
-                    var text_to_insert = "";
-                    text_to_insert += "<li style=\"background: ";
-                    text_to_insert += data.color;
-                    text_to_insert += "; ";
-                    if ((current_include_regexp_filter.test(data.contents)) &&
-                        !(current_exclude_regexp_filter.test(data.contents)))
+                    if (pending_log_items.length == 0)
                     {
-                        text_to_insert += "display: block;";
+                        return;
+                    }
+                    var at_bottom_of_dialog = false;
+                    if (dialog_contents_element.scrollTop() + dialog_contents_element.height() > dialog_inner_contents_element.height() - 100)
+                    {
+                        at_bottom_of_dialog = true;
+                    }
+                    var items_appended = 0;
+                    var chunk = "";
+                    while ((pending_log_items.length > 0) && (items_appended < pending_log_item_chunk_size))
+                    {
+                        chunk += pending_log_items.pop();
+                        items_appended += 1;
+                    }
+                    log_table_element.append(chunk);
+                    if (at_bottom_of_dialog)
+                    {
+                        dialog_contents_element.animate({scrollTop:dialog_inner_contents_element.height()}, 0);
+                    }
+                }
+                
+                include_regexp_filter_element.keyup(function(event)
+                {
+                    if (include_regexp_timer_enabled)
+                    {
+                        clearInterval(include_regexp_interval_obj);
+                    }
+                    include_regexp_timer_enabled = true;
+                    var interval;
+                    if (event.which == 13)
+                    {
+                        interval = 0;
                     }
                     else
                     {
-                        text_to_insert += "display: none;";
+                        interval = 1000;
                     }
-                    text_to_insert += "\">";
-                    text_to_insert +=  data.contents;
-                    text_to_insert += "</li>";
-                    pending_log_items.unshift(text_to_insert);
+                    include_regexp_interval_obj = setInterval(update_regexp, interval);
+                });
 
-                } // if is_connected
-            }); // on socket connect
-        }
-    });
+                exclude_regexp_filter_element.keyup(function(event)
+                {
+                    if (exclude_regexp_timer_enabled)
+                    {
+                        clearInterval(exclude_regexp_interval_obj);
+                    }
+                    exclude_regexp_timer_enabled = true;
+                    var interval;
+                    if (event.which == 13)
+                    {
+                        interval = 0;
+                    }
+                    else
+                    {
+                        interval = 1000;
+                    }
+                    exclude_regexp_interval_obj = setInterval(update_regexp, interval);
+                });
+
+                function update_regexp()
+                {
+                    // ---------------------------------------------------------------
+                    //  Update the include regular expression, if it was being
+                    //  updated.
+                    // ---------------------------------------------------------------
+                    if (include_regexp_timer_enabled)
+                    {
+                        clearInterval(include_regexp_interval_obj);
+                        include_regexp_timer_enabled = false;
+                        var text_val = include_regexp_filter_element.val();
+                        if (text_val == "")
+                        {
+                            text_val = ".*";
+                        }
+                        try
+                        {
+                            var possible_include_regexp_filter = new RegExp(text_val, "i");
+                            include_regexp_filter_control_group_element.removeClass("error");
+                            current_include_regexp_filter = possible_include_regexp_filter;
+                        }
+                        catch (e)
+                        {
+                            include_regexp_filter_control_group_element.addClass("error");
+                        }
+                    }
+                    // ---------------------------------------------------------------
+
+                    // ---------------------------------------------------------------
+                    //  Update the exclude regular expression, if it was being
+                    //  updated.
+                    // ---------------------------------------------------------------
+                    if (exclude_regexp_timer_enabled)
+                    {
+                        clearInterval(exclude_regexp_interval_obj);
+                        exclude_regexp_timer_enabled = false;
+                        var text_val = exclude_regexp_filter_element.val();
+                        if (text_val == "")
+                        {
+                            text_val = "^$";
+                        }
+                        try
+                        {
+                            var possible_exclude_regexp_filter = new RegExp(text_val, "i");
+                            exclude_regexp_filter_control_group_element.removeClass("error");
+                            current_exclude_regexp_filter = possible_exclude_regexp_filter;
+                        }
+                        catch (e)
+                        {
+                            exclude_regexp_filter_control_group_element.addClass("error");
+                        }
+                    }
+                    // ---------------------------------------------------------------
+
+                    // ---------------------------------------------------------------
+                    //  Re-apply both include and exclude regular expressions
+                    //  to all log rows.
+                    // ---------------------------------------------------------------
+                    log_table_element.children().each(function(index, element)
+                    {
+                        var text = $(this).text();
+                        var is_included = current_include_regexp_filter.test(text);
+                        var is_excluded = current_exclude_regexp_filter.test(text);
+                        if ((is_excluded == true) ||
+                            (is_excluded == false) && (is_included == true))
+                        {
+                            $(this).css({'display': 'none'});
+                        }
+                        else
+                        {
+                            $(this).css({'display': 'block'});
+                        }
+                    });
+                    // ---------------------------------------------------------------
+                }
+
+                function disconnect()
+                {
+                    socket.disconnect();
+                    log_table_element.empty();
+                }
+
+                hostname_element.change(function()
+                {
+                    hostname = hostname_element.find("option:selected").val();
+                    console.log("hostname selection changes to: " + hostname);
+                    pending_log_items = [];
+                    if (is_connected)
+                    {
+                        disconnect();
+                        is_connected = false;
+                    }
+                    hostname_select_element.removeClass("success");
+                    hostname_select_element.addClass("warning");
+                    setTimeout(connect_to_real_time_server, 100);
+                });
+                hostname_element.prop("selectedIndex", -1);
+
+                function connect_to_real_time_server()
+                {
+                    console.log("connect_to_real_time_server entry for hostname: " + hostname);
+                    if (!has_ever_connected)
+                    {
+                        socket = io.connect("http://localhost:8081");
+                        socket = io.connect(null,{'force new connection':true});
+                        has_ever_connected = true;
+                    }
+                    else
+                    {
+                        socket = io.connect(null,{'force new connection':true});
+                    }
+                    socket.on('hostname_selection', function()
+                    {
+                        console.log("emitting hostname selection: " + hostname);
+                        socket.emit("hostname_selection", JSON.stringify(hostname));
+                        hostname_select_element.addClass("success");
+                        hostname_select_element.removeClass("warning");
+                    });
+                    is_connected = true;
+
+                    socket.on('log', function(data)
+                    {
+                        if (is_connected)
+                        {
+                            var text_to_insert = "";
+                            text_to_insert += "<li style=\"background: ";
+                            text_to_insert += data.color;
+                            text_to_insert += "; ";
+                            var is_included = current_include_regexp_filter.test(data.contents);
+                            var is_excluded = current_exclude_regexp_filter.test(data.contents);
+                            if ((is_excluded == true) ||
+                                (is_excluded == false) && (is_included == true))
+                            {
+                                text_to_insert += "display: none;";
+                            }
+                            else
+                            {
+                                text_to_insert += "display: block;";
+                            }
+                            text_to_insert += "\">";
+                            text_to_insert +=  data.contents;
+                            text_to_insert += "</li>";
+                            pending_log_items.unshift(text_to_insert);
+
+                        } // if is_connected
+                    }); // on socket connect
+                }
+                return interleaver;
+            } // createNew;
+        } // Interleaver;
+        // -------------------------------------------------------------------
+
+        $("#add_new_window_link").click(function() {
+            console.log("creating a new window...");
+            var interleaver = Interleaver.createNew();
+        });
+
+    }); // top-level jquery document ready
 
 </script>
 
 <h2>Real time stream</h2>
 
-<form class="well">
-    <div id="hostname_select" class="control-group">
-        <label>Hostname</label>
-        <select name="hostname" id="hostname">
-            <option value="andromeda">ShM - andromeda</option>
-            <option value="crux">ShM - crux</option>
-            <option value="dorado">ShM - dorado</option>
-            <option value="draco">ShM - draco</option>
-            <option value="gemini">ShM - gemini</option>
-            <option value="leo">ShM - leo</option>
-            <option value="lupus">ShM - lupus</option>
-            <option value="scorpius">ShM - scorpius</option>
-            <option value="tucana">ShM - tucana</option>
-            <option value="vulpecula">ShM - vulpecula</option>
-            <option value="alpheratz">NGMG - alpheratz</option>
-            <option value="altais">NGMG - alatais</option>
-            <option value="arrakis">NGMG - arrakis</option>
-            <option value="jabbah">NGMG - jabbah</option>
-            <option value="juza">NGMG - juza</option>
-            <option value="rastaban">NGMG - rastaban</option>
-            <option value="subra">NGMG - subra</option>
-            <option value="wolf">NGMG - wolf</option>
-            <option value="zosma">NGMG - zosma</option>
-        </select>
-    </div>
-    <div id="include_regexp_filter_control_group" class="control-group">
-        <label>Include regular expression filter</label>
-        <input id="include_regexp_filter" name="include_regexp_filter" type="text" class="span3" placeholder="e.g. '.*' or '(failed|exception)'"></input>
-    </div>
-    <div id="exclude_regexp_filter_control_group" class="control-group">
-        <label>Exclude regular expression filter</label>
-        <input id="exclude_regexp_filter" name="exclude_regexp_filter" type="text" class="span3" placeholder="e.g. '^$' or '(callbacks)'"></input>
-    </div>
-</form>
+<p class="btn btn-primary btn-large" id="add_new_window_link">Add a new window</p>
 
-<p><ul class="unstyled mono" id="log_table"></ul></p>
+<div id="dialog_insert_point"></div>
+
+<div id="base_dialog_contents">
+    <div id="dialog_inner_contents">
+        <form class="well">
+            <div id="hostname_select" class="control-group">
+                <label>Hostname</label>
+                <select name="hostname" id="hostname">
+                    <option value="andromeda">ShM - andromeda</option>
+                    <option value="crux">ShM - crux</option>
+                    <option value="dorado">ShM - dorado</option>
+                    <option value="draco">ShM - draco</option>
+                    <option value="gemini">ShM - gemini</option>
+                    <option value="leo">ShM - leo</option>
+                    <option value="lupus">ShM - lupus</option>
+                    <option value="scorpius">ShM - scorpius</option>
+                    <option value="tucana">ShM - tucana</option>
+                    <option value="vulpecula">ShM - vulpecula</option>
+                    <option value="alpheratz">NGMG - alpheratz</option>
+                    <option value="altais">NGMG - alatais</option>
+                    <option value="arrakis">NGMG - arrakis</option>
+                    <option value="jabbah">NGMG - jabbah</option>
+                    <option value="juza">NGMG - juza</option>
+                    <option value="rastaban">NGMG - rastaban</option>
+                    <option value="subra">NGMG - subra</option>
+                    <option value="wolf">NGMG - wolf</option>
+                    <option value="zosma">NGMG - zosma</option>
+                </select>
+            </div>
+            <div id="include_regexp_filter_control_group" class="control-group">
+                <label>Include regular expression filter</label>
+                <input id="include_regexp_filter" name="include_regexp_filter" type="text" class="span3" placeholder="e.g. '.*' or '(failed|exception)'"></input>
+            </div>
+            <div id="exclude_regexp_filter_control_group" class="control-group">
+                <label>Exclude regular expression filter</label>
+                <input id="exclude_regexp_filter" name="exclude_regexp_filter" type="text" class="span3" placeholder="e.g. '^$' or '(callbacks)'"></input>
+            </div>
+        </form>
+
+        <div id="log_table_dialog" title="">
+            <p><ul class="unstyled mono" id="log_table"></ul></p>
+        </div>
+    </div>
+</div>
 
 </div>
 </div>
