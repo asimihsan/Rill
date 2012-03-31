@@ -155,6 +155,8 @@
                 var log_count_element = $("#" + log_count_id);
 
                 dialog_contents_element.dialog({
+                    width: 800,
+                    height: 600,
                     close: function(event, ui) {
                         console.log("dialog is closing, so trigger disconnect.");
                         if (is_connected) { disconnect(); }
