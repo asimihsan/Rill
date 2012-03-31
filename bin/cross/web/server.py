@@ -127,6 +127,7 @@ def shm_memory_charts():
     jobs = []
     for collection in collection_objects:
         job = gevent.spawn(db.get_shm_memory_data, collection)
+        job.join()
         jobs.append(job)
     gevent.joinall(jobs)
     memory_data = []
