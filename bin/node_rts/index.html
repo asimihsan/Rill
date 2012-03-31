@@ -106,6 +106,7 @@
                 var include_regexp_filter_id = "include_regexp_filter_id_" + instance_number;
                 var exclude_regexp_filter_control_group_id = "exclude_regexp_filter_control_group_" + instance_number;
                 var exclude_regexp_filter_id = "exclude_regexp_filter_" + instance_number;
+                var clear_logs_id = "clear_logs_" + instance_number;
                 var log_table_dialog_id = "log_table_dialog_" + instance_number;
                 var log_table_id = "log_table_" + instance_number;
                 // -----------------------------------------------------------
@@ -138,6 +139,7 @@
                 var include_regexp_filter_element = $("#" + include_regexp_filter_id);
                 var exclude_regexp_filter_control_group_element = $("#" + exclude_regexp_filter_control_group_id);
                 var exclude_regexp_filter_element = $("#" + exclude_regexp_filter_id);
+                var clear_logs_element = $("#" + clear_logs_id);
                 var log_table_dialog_element = $("#" + log_table_dialog_id);
                 var log_table_element = $("#" + log_table_id);
 
@@ -383,6 +385,10 @@
                         } // if is_connected
                     }); // on socket connect
                 }
+
+                clear_logs_element.click(function() {
+                    log_table_element.empty();
+                });
                 return interleaver;
             } // createNew;
         } // Interleaver;
@@ -438,6 +444,7 @@
                 <label>Exclude regular expression filter</label>
                 <input id="exclude_regexp_filter" name="exclude_regexp_filter" type="text" class="span3" placeholder="e.g. '^$' or '(callbacks)'"></input>
             </div>
+            <div id="clear_logs" class="btn btn-danger" href="#">Clear all logs</div>
         </form>
 
         <div id="log_table_dialog" title="">
