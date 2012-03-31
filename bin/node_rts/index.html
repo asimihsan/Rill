@@ -164,10 +164,10 @@
                         pending_log_items.length = 0;
                         clearInterval(include_regexp_interval_obj);
                         clearInterval(exclude_regexp_interval_obj);
+                        clearInterval(maximum_number_of_logs_interval_obj);
                         closeCallback(instance_number);
                     }
                 });
-
                 var wrapping_dialog = dialog_contents_element.closest('.ui-dialog');
                 // -----------------------------------------------------------
 
@@ -235,13 +235,16 @@
                 var pending_log_items = [];
                 var pending_log_item_chunk_size = 20;
                 var pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
+                var pending_log_item_appender_timer_enabled = false;
                 function pending_log_item_append()
                 {
-                    if (pending_log_items.length == 0)
+                    if ((pending_log_item_appender_timer_enabled == true) && (pending_log_items.length == 0))
                     {
+                        pending_log_item_appender_timer_enabled = false;
                         clearInterval(pending_log_item_appender_interval_obj);
                         return;
                     }
+                    pending_log_item_appender_timer_enabled = true;
                     var at_bottom_of_dialog = false;
                     if (dialog_contents_element.scrollTop() + dialog_contents_element.height() > dialog_inner_contents_element.height() - 100)
                     {
@@ -391,7 +394,8 @@
                 {
                     hostname = hostname_element.find("option:selected").val();
                     console.log("hostname selection changes to: " + hostname);
-                    pending_log_items = [];
+                    dialog_contents_element.dialog("option", "title", hostname);
+                    pending_log_items.length = 0;
                     if (is_connected)
                     {
                         disconnect();
@@ -448,7 +452,10 @@
                             text_to_insert +=  data.contents;
                             text_to_insert += "</li>";
                             pending_log_items.unshift(text_to_insert);
-                            pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
+                            if (pending_log_item_appender_timer_enabled == false) {
+                                pending_log_item_appender_timer_enabled = true;
+                                pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
+                            }
                         } // if is_connected
                     }); // on socket connect
                 }
