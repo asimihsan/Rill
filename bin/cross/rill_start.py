@@ -395,7 +395,7 @@ def main(verbose):
         if global_config.get_service_registry_verbose():
             service_registry_cmd += " --verbose"
         logger.debug("service_registry_cmd: %s" % (service_registry_cmd, ))
-        proc = start_process(service_registry_cmd)
+        proc = start_process(service_registry_cmd, verbose)
         service_registry_process = Process(service_registry_cmd, "service_registry", proc)
         all_processes.append(service_registry_process)
         time.sleep(2)
@@ -425,14 +425,14 @@ def main(verbose):
         if global_config.get_masspinger_verbose():
             masspinger_cmd += " --verbose"
         logger.debug("masspinger_cmd: %s" % (masspinger_cmd, ))
-        proc = start_process(masspinger_cmd)
+        proc = start_process(masspinger_cmd, verbose)
         masspinger_process = Process(masspinger_cmd, "masspinger", proc)
         all_processes.append(masspinger_process)
 
         masspinger_tap_cmd = masspinger_tap_template.substitute(executable = masspinger_tap_filepath,
                                                                 masspinger_zeromq_bind = masspinger_zeromq_bind).strip()
         masspinger_tap_cmd += " --verbose"
-        proc = start_process(masspinger_tap_cmd)
+        proc = start_process(masspinger_tap_cmd, verbose)
         masspinger_tap_process = Process(masspinger_tap_cmd, "masspinger_tap", proc)
         all_processes.append(masspinger_tap_process)
 
@@ -512,7 +512,7 @@ def main(verbose):
         logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))
         for (command, host, parser_name, results_zeromq_bind) in commands:
             #logger.debug("robust_ssh_tap command: %s" % (command, ))
-            proc = start_process(command)
+            proc = start_process(command, verbose)
             process = Process(command, "robust_ssh_tap. {host=%s, parser_name=%s}" % (host, parser_name), proc)
             all_processes.append(process)
         for (command, host, parser_name, results_zeromq_bind) in commands:
@@ -556,16 +556,14 @@ class Process(object):
     def get_process_name(self):
         return self.process_name
 
-def start_process(command_line, stdout_capture=False):
+def start_process(command_line, verbose=False):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
-    logger.debug("Starting: %s" % (command_line, ))
+    logger.debug("Starting: %s. verbose: %s" % (command_line, verbose))
     null_fp = open(os.devnull, "w")
     if platform.system() == "Linux":
-        if stdout_capture:
+        if verbose:
             proc = subprocess.Popen(command_line,
-                                    shell=True,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
+                                    shell=True)
         else:
             proc = subprocess.Popen(command_line,
                                     shell=True,
@@ -574,15 +572,11 @@ def start_process(command_line, stdout_capture=False):
     else:
         # To allow sending CTRL_C_EVENT signals to the process set
         # a Windows-only creation flag.
-        if stdout_capture:
+        if verbose:
             proc = subprocess.Popen(command_line,
-                                    #shell=True,
-                                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP,
-                                    stdout = subprocess.PIPE,
-                                    stderr = subprocess.STDOUT)
+                                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP)
         else:
             proc = subprocess.Popen(command_line,
-                                    #shell=True,
                                     creationflags = subprocess.CREATE_NEW_PROCESS_GROUP,
                                     stdout=null_fp,
                                     stderr=null_fp)

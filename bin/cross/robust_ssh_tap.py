@@ -297,13 +297,13 @@ def main(masspinger_zeromq_binding,
             if host_alive:
                 if ssh_tap_process is None:
                     logger.debug("ssh_tap_process not running, so restart it.")
-                    ssh_tap_process = start_process(ssh_tap_command)
+                    ssh_tap_process = start_process(ssh_tap_command, verbose)
                 if is_tail_query_inode_required and tail_query_inode_process is None:
                     logger.debug("tail_query_inode_process not running, so restart it.")
-                    tail_query_inode_process = start_process(tail_query_inode_command)
+                    tail_query_inode_process = start_process(tail_query_inode_command, verbose)
                 if parser_process is None:
                     logger.debug("parser_process not running, so restart it.")
-                    parser_process = start_process(parser_command)
+                    parser_process = start_process(parser_command, verbose)
             else:
                 if ssh_tap_process and (ssh_tap_process.poll() is None):
                     logger.debug("ssh_tap_process running but host dead, so kill it.")
@@ -365,19 +365,30 @@ def main(masspinger_zeromq_binding,
         terminate_process(parser_process, "parser_process", kill=True)
         logger.debug("finished.")
 
-def start_process(command_line):
+def start_process(command_line, verbose = False):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
-    logger.debug("Starting: %s" % (command_line, ))
+    logger.debug("Starting: command_line: %s, verbose: %s" % (command_line, verbose))
     null_fp = open(os.devnull, "w")
     if platform.system() == "Linux":
-        proc = subprocess.Popen(command_line, shell=True, stdout=null_fp, stderr=null_fp)
+        if verbose:
+            proc = subprocess.Popen(command_line,
+                                    shell=True)
+        else:
+            proc = subprocess.Popen(command_line,
+                                    shell=True,
+                                    stdout=null_fp,
+                                    stderr=null_fp)
     else:
         # To allow sending CTRL_C_EVENT signals to the process set
         # a Windows-only creation flag.
-        proc = subprocess.Popen(command_line,
-                                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP,
-                                stdout=null_fp,
-                                stderr=null_fp)
+        if verbose:
+            proc = subprocess.Popen(command_line,
+                                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP)
+        else:
+            proc = subprocess.Popen(command_line,
+                                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP,
+                                    stdout=null_fp,
+                                    stderr=null_fp)
     return proc
 
 def terminate_process(process_object, process_name, kill=False):
