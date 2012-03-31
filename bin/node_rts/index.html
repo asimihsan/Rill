@@ -79,6 +79,10 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+    function isNumber(n) {
+          return !isNaN(parseInt(n)) && isFinite(n);
+    }
+
     $(document).ready(function() {
 
         // Detach this. We don't want to display it, and we're going to duplicate
@@ -90,7 +94,7 @@
         // -------------------------------------------------------------------
         var interleaver_instance_counter = 0;
         var Interleaver = {
-            createNew: function() {
+            createNew: function(closeCallback) {
                 var interleaver = {};
 
                 // -----------------------------------------------------------
@@ -106,9 +110,13 @@
                 var include_regexp_filter_id = "include_regexp_filter_id_" + instance_number;
                 var exclude_regexp_filter_control_group_id = "exclude_regexp_filter_control_group_" + instance_number;
                 var exclude_regexp_filter_id = "exclude_regexp_filter_" + instance_number;
+                var maximum_number_of_logs_control_group_id = "maximum_number_of_logs_control_group_" + instance_number;
+                var maximum_number_of_logs_id = "maximum_number_of_logs_" + instance_number;
                 var clear_logs_id = "clear_logs_" + instance_number;
                 var log_table_dialog_id = "log_table_dialog_" + instance_number;
                 var log_table_id = "log_table_" + instance_number;
+                var log_count_id = "log_count_" + instance_number;
+                var maximum_number_of_logs = 10000;
                 // -----------------------------------------------------------
 
                 // -----------------------------------------------------------
@@ -139,25 +147,78 @@
                 var include_regexp_filter_element = $("#" + include_regexp_filter_id);
                 var exclude_regexp_filter_control_group_element = $("#" + exclude_regexp_filter_control_group_id);
                 var exclude_regexp_filter_element = $("#" + exclude_regexp_filter_id);
+                var maximum_number_of_logs_control_group_element = $("#" + maximum_number_of_logs_control_group_id);
+                var maximum_number_of_logs_element = $("#" + maximum_number_of_logs_id);
                 var clear_logs_element = $("#" + clear_logs_id);
                 var log_table_dialog_element = $("#" + log_table_dialog_id);
                 var log_table_element = $("#" + log_table_id);
+                var log_count_element = $("#" + log_count_id);
 
                 dialog_contents_element.dialog({
                     close: function(event, ui) {
                         console.log("dialog is closing, so trigger disconnect.");
-                        disconnect();
+                        if (is_connected) { disconnect(); }
                         dialog_contents_element.remove();
+                        wrapping_dialog.remove();
+                        clearInterval(pending_log_item_appender_interval_obj);
+                        pending_log_items.length = 0;
+                        clearInterval(include_regexp_interval_obj);
+                        clearInterval(exclude_regexp_interval_obj);
+                        closeCallback(instance_number);
                     }
                 });
 
                 var wrapping_dialog = dialog_contents_element.closest('.ui-dialog');
                 // -----------------------------------------------------------
 
+                interleaver.getInstanceNumber = function() { return instance_number; }
+
                 var is_connected = false;
                 var socket;
                 var hostname;
                 var has_ever_connected = false;
+
+                // -----------------------------------------------------------
+                // Maximum number of logs handling.
+                // -----------------------------------------------------------
+                var maximum_number_of_logs_interval_obj;
+                var maximum_number_of_logs_timer_enabled = false;
+
+                maximum_number_of_logs_element.keyup(function(event)
+                {
+                    console.log("keyup on max number of logs");
+                    if (maximum_number_of_logs_timer_enabled) {
+                        clearInterval(maximum_number_of_logs_interval_obj);
+                    }
+                    maximum_number_of_logs_timer_enabled = true;
+                    var interval;
+                    if (event.which == 13) {
+                        interval = 0;
+                    } else {
+                        interval = 1000;
+                    }
+                    maximum_number_of_logs_interval_obj = setInterval(update_maximum_number_of_logs, interval);
+                });
+
+                function update_maximum_number_of_logs() {
+                    console.log("maximum_number_of_logs_element.val(): " + maximum_number_of_logs_element.val());
+                    if (maximum_number_of_logs_timer_enabled) {
+                        clearInterval(maximum_number_of_logs_interval_obj);
+                        maximum_number_of_logs_timer_enabled = false;
+                    }
+                    if ( !isNumber(maximum_number_of_logs_element.val()) ) {
+                        console.log("invalid maximum number of logs");
+                        maximum_number_of_logs_control_group_element.addClass("error");
+                        maximum_number_of_logs = 10000;
+                    } else {
+                        maximum_number_of_logs_control_group_element.removeClass("error");
+                        maximum_number_of_logs = parseInt(maximum_number_of_logs_element.val());
+                    }
+                    console.log("maximum_number_of_logs: " + maximum_number_of_logs);
+                }
+
+                update_maximum_number_of_logs();
+                // -----------------------------------------------------------
 
                 var current_include_regexp_filter = new RegExp(".*", "ig");
                 include_regexp_filter_element.val(".*");
@@ -194,6 +255,12 @@
                         items_appended += 1;
                     }
                     log_table_element.append(chunk);
+                    var logs = log_table_element.children();
+                    if (logs.length > maximum_number_of_logs)
+                    {
+                        logs.slice(0, logs.length - maximum_number_of_logs).remove();
+                    }
+                    log_count_element.text( log_table_element.children().length );
                     if (at_bottom_of_dialog)
                     {
                         dialog_contents_element.animate({scrollTop:dialog_inner_contents_element.height()}, 0);
@@ -388,16 +455,28 @@
 
                 clear_logs_element.click(function() {
                     log_table_element.empty();
+                    log_count_element.text( log_table_element.children().length );
                 });
                 return interleaver;
             } // createNew;
         } // Interleaver;
         // -------------------------------------------------------------------
 
-        $("#add_new_window_link").click(function() {
+        var interleavers = new Array();
+
+        function onClose(instanceNumber) {
+            console.log("close callback. instanceNumber: " + instanceNumber);
+            delete interleavers[instanceNumber];
+        }
+
+        function addNewInterleaver() {
             console.log("creating a new window...");
-            var interleaver = Interleaver.createNew();
-        });
+            var interleaver = Interleaver.createNew(onClose);
+            var instanceNumber = interleaver.getInstanceNumber();
+            interleavers[instanceNumber] = interleaver;
+        }
+
+        $("#add_new_window_link").click(addNewInterleaver);
 
     }); // top-level jquery document ready
 
@@ -444,8 +523,14 @@
                 <label>Exclude regular expression filter</label>
                 <input id="exclude_regexp_filter" name="exclude_regexp_filter" type="text" class="span3" placeholder="e.g. '^$' or '(callbacks)'"></input>
             </div>
+            <div id="maximum_number_of_logs_control_group" class="control-group">
+                <label>Maximum number of logs</label>
+                <input id="maximum_number_of_logs" name="maximum_number_of_logs" type="text" class="span3" value="10000"></input>
+            </div>
             <div id="clear_logs" class="btn btn-danger" href="#">Clear all logs</div>
         </form>
+
+        <p>Number of logs: <span id="log_count">0</span></p>
 
         <div id="log_table_dialog" title="">
             <p><ul class="unstyled mono" id="log_table"></ul></p>
