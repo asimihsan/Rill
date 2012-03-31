@@ -145,6 +145,7 @@
                     close: function(event, ui) {
                         console.log("dialog is closing, so trigger disconnect.");
                         disconnect();
+                        dialog_contents_element.remove();
                     }
                 });
 
@@ -175,6 +176,7 @@
                 {
                     if (pending_log_items.length == 0)
                     {
+                        clearInterval(pending_log_item_appender_interval_obj);
                         return;
                     }
                     var at_bottom_of_dialog = false;
@@ -377,7 +379,7 @@
                             text_to_insert +=  data.contents;
                             text_to_insert += "</li>";
                             pending_log_items.unshift(text_to_insert);
-
+                            pending_log_item_appender_interval_obj = setInterval(pending_log_item_append, 100);
                         } // if is_connected
                     }); // on socket connect
                 }
