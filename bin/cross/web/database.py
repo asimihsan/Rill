@@ -1,7 +1,11 @@
+import os
+import sys
+cross_root = os.path.abspath(os.path.join(__file__, os.pardir))
+sys.path.append(cross_root)
+from utilities import retry
 
 import datetime
 import pymongo
-import pymongo.master_slave_connection
 import re
 
 import time
@@ -10,9 +14,7 @@ import functools
 # -----------------------------------------------------------------------------
 #   Database constants.
 # -----------------------------------------------------------------------------
-master = "magpie"
-slaves = ["mink", "rabbit", "rat"]
-hostnames = [master] + slaves
+servers = ["magpie:27017", "mink:27017", "rabbit:27107", "rat:27107"]
 # -----------------------------------------------------------------------------
 
 import logging
@@ -38,18 +40,15 @@ class Database(object):
     def __init__(self, database_name=None):
         if not database_name:
             database_name = "logs"
-        self.master_connection = pymongo.Connection(master)
-        self.slave_connections = [pymongo.Connection(hostname) for hostname in slaves]
-        for connection in self.slave_connections:
-            connection.read_preference = pymongo.ReadPreference.SECONDARY
-        self.connection = pymongo.master_slave_connection.MasterSlaveConnection(self.master_connection,
-                                                                                self.slave_connections)
-        #self.connection = pymongo.Connection(hostnames)
+        self.connection = pymongo.ReplicaSetConnection(",".join(servers), replicaSet='rill')
+        self.connection.read_preference = pymongo.ReadPreference.SECONDARY
         self.database = self.connection[database_name]
 
+    @retry()
     def get_collection(self, collection_name):
         return self.database[collection_name]
 
+    @retry()
     def get_collection_names(self, name_filter=None):
         all_collection_names = self.database.collection_names()
         if name_filter:
@@ -58,14 +57,17 @@ class Database(object):
             collection_names = all_collection_names
         return collection_names
 
+    @retry()
     def get_ngmg_shm_messages_collections(self):
         return self.get_collection_names(name_filter = self.ngmg_shm_messages_collection_filter)
 
+    @retry()
     def get_ngmg_ep_collections(self):
         collection_names = self.get_collection_names(name_filter = self.ngmg_ep_collection_filter)
         collections = [self.get_collection(name) for name in collection_names]
         return collections
 
+    @retry()
     def get_ep_error_instances(self,
                                error_id,
                                datetime_interval = None,
@@ -89,6 +91,7 @@ class Database(object):
             results.append((collection, results_cursor_sorted))
         return results
 
+    @retry()
     def get_ep_warnings_and_errors(self,
                                    collection,
                                    datetime_interval = None,
@@ -110,6 +113,7 @@ class Database(object):
         results_cursor_sorted = results_cursor.sort("datetime", -1)
         return results_cursor
 
+    @retry()
     def get_full_text_search_of_logs(self,
                                      collection,
                                      include_search_argument,
@@ -144,6 +148,7 @@ class Database(object):
 
         return results_cursor
 
+    @retry()
     def get_shm_split_brain_logs(self,
                                  collection,
                                  datetime_interval=None,
@@ -156,6 +161,7 @@ class Database(object):
                                                  fields_to_return,
                                                  fields_to_ignore)
 
+    @retry()
     def get_shm_memory_data(self,
                             collection,
                             datetime_interval = None):
@@ -192,6 +198,7 @@ class Database(object):
             results.append((datetime_epoch_milli, percent_free))
         return results
 
+    @retry()
     def get_all_items_from_collection_newer_than(self,
                                                  collection_name,
                                                  datetime_interval,

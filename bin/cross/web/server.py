@@ -1,5 +1,10 @@
 #!/usr/bin/env python2.7
 
+import os
+import sys
+cross_path = os.path.abspath(os.path.join(__file__, os.pardir))
+from utilities import retry
+
 import gevent
 from gevent import monkey; monkey.patch_all()
 
@@ -23,8 +28,6 @@ import base64
 import operator
 import urllib
 from string import Template
-
-#from real_time_stream import real_time_stream
 
 # ----------------------------------------------------------------------------
 #   Logging.

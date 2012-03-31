@@ -20,6 +20,7 @@ import argparse
 import pymongo
 import pymongo.binary
 import database
+from utilities import retry
 
 from whoosh.analysis import FancyAnalyzer
 from whoosh.analysis import StemmingAnalyzer
@@ -71,6 +72,7 @@ def get_args():
     args = parser.parse_args()
     return args
 
+@retry()
 def setup_database(args, fields_to_index):
     collection = None
     if args.collection:
@@ -250,12 +252,16 @@ def main(app_name, log_datum_class, fields_to_index):
                     data_to_store["datetime"] = datetime_obj
                     # --------------------------------------------------------
 
-                    collection.insert(data_to_store)
+                    insert_into_collection(collection, data_to_store)
             # ----------------------------------------------------------------
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
         logger.debug("exiting")
+
+@retry()
+def insert_into_collection(collection, data):
+    collection.insert(data)
 
 if __name__ == "__main__":
     logger.error("This is the base_parser and is not intended to be executed directly.")

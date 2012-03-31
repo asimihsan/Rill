@@ -50,7 +50,7 @@ def main():
 
     top_db = database.Database(database_name = "logs")
     write_database = top_db.write_database
-    collection_names = write_database.collection_names()
+    collection_names = sorted(write_database.collection_names())
     if "system.indexes" in collection_names:
         collection_names.remove("system.indexes")
     datetime_query_string = "datetime"
