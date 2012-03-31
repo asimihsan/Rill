@@ -222,17 +222,15 @@
                 update_maximum_number_of_logs();
                 // -----------------------------------------------------------
 
-                var current_include_regexp_filter = new RegExp(".*", "ig");
                 include_regexp_filter_element.val(".*");
+                var current_include_regexp_filter = new RegExp(".*", "i");
                 var include_regexp_interval_obj;
                 var include_regexp_timer_enabled = false;
 
-                var current_exclude_regexp_filter = new RegExp("^$", "ig");
                 exclude_regexp_filter_element.val("^$");
+                var current_exclude_regexp_filter = new RegExp("^$", "i");
                 var exclude_regexp_interval_obj;
                 var exclude_regexp_timer_enabled = false;
-
-                update_regexp();
 
                 hostname_select_element.addClass("warning");
 
@@ -376,7 +374,7 @@
                         var is_included = current_include_regexp_filter.test(text);
                         var is_excluded = current_exclude_regexp_filter.test(text);
                         if ((is_excluded == true) ||
-                            (is_excluded == false) && (is_included == true))
+                            (is_excluded == false) && (is_included == false))
                         {
                             $(this).css({'display': 'none'});
                         }
@@ -444,7 +442,7 @@
                             var is_included = current_include_regexp_filter.test(data.contents);
                             var is_excluded = current_exclude_regexp_filter.test(data.contents);
                             if ((is_excluded == true) ||
-                                (is_excluded == false) && (is_included == true))
+                                (is_excluded == false) && (is_included == false))
                             {
                                 text_to_insert += "display: none;";
                             }
