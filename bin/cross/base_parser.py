@@ -17,6 +17,8 @@ import platform
 import argparse
 
 # !!AI hacks
+import pymongo
+import pymongo.binary
 import database
 
 from whoosh.analysis import FancyAnalyzer
@@ -232,6 +234,10 @@ def main(app_name, log_datum_class, fields_to_index):
                 if platform.system() == "Linux":
                     logger.debug("!!AI hacks, just put it into the DB.")
                     log_dict = log_datum.get_dict_representation()
+
+                    # --------------------------------------------------------
+                    # Re-process the dict to get a real datetime object.
+                    # --------------------------------------------------------
                     datetime_obj = datetime.datetime(int(log_dict["year"]),
                                                      int(log_dict["month"]),
                                                      int(log_dict["day"]),
@@ -242,6 +248,8 @@ def main(app_name, log_datum_class, fields_to_index):
                     for key in ["year", "month", "day", "hour", "minute", "second"]:
                         data_to_store.pop(key)
                     data_to_store["datetime"] = datetime_obj
+                    # --------------------------------------------------------
+
                     collection.insert(data_to_store)
             # ----------------------------------------------------------------
     except KeyboardInterrupt:

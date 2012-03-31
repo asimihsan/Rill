@@ -15,8 +15,9 @@ import re
 import json
 import platform
 import argparse
+import hashlib
+import base64
 
-# !!AI hacks
 import database
 
 from whoosh.analysis import FancyAnalyzer
@@ -135,6 +136,7 @@ class NgmgMsMessagesParserLogDatum(object):
         return_value["minute"] = str(datetime_obj.minute)
         return_value["second"] = str(datetime_obj.second)
         return_value["contents"] = self.string_input
+        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
         return_value["keywords"] = self.tokenize(return_value["contents"])
         return_value = self.handle_ms_failures(return_value)
         return return_value
@@ -193,7 +195,7 @@ class NgmgMsMessagesParserLogDatum(object):
 
 if __name__ == "__main__":
     logger.debug("starting")
-    fields_to_index = ["datetime", "keywords", "failure_type", "failure_id"]
+    fields_to_index = ["datetime", "keywords", "failure_type", "failure_id", "contents_hash"]
     try:
         base_parser.main(APP_NAME, NgmgMsMessagesParserLogDatum, fields_to_index)
     except KeyboardInterrupt:

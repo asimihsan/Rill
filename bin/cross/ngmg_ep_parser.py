@@ -15,8 +15,9 @@ import re
 import json
 import platform
 import argparse
+import hashlib
+import base64
 
-# !!AI hacks
 import database
 
 from whoosh.analysis import FancyAnalyzer
@@ -141,6 +142,7 @@ class NgmgEpParserLogDatum(object):
         return_value["minute"] = str(datetime_obj.minute)
         return_value["second"] = str(datetime_obj.second)
         return_value["contents"] = self.string_input
+        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
         return_value["keywords"] = self.tokenize(return_value["contents"])
         return_value["log_id"] = log_id
         return_value["component_id"] = component_id
@@ -189,7 +191,7 @@ class NgmgEpParserLogDatum(object):
 if __name__ == "__main__":
     logger.debug("starting")
     try:
-        fields_to_index = ["datetime", "keywords", "error_level", "error_id"]
+        fields_to_index = ["datetime", "keywords", "error_level", "error_id", "contents_hash"]
         base_parser.main(APP_NAME, NgmgEpParserLogDatum, fields_to_index)
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
