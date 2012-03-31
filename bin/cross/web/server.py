@@ -2,7 +2,8 @@
 
 import os
 import sys
-cross_path = os.path.abspath(os.path.join(__file__, os.pardir))
+cross_path = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
+sys.path.append(cross_path)
 from utilities import retry
 
 import gevent
@@ -202,6 +203,7 @@ def shm_error_count():
                            condition = q_condition_failure_id,
                            initial = q_initial_failure_id,
                            reduce = q_reduce_failure_id)
+        job.join()
         jobs.append(job)
     gevent.joinall(jobs)
     failure_id_to_count = {}
@@ -302,6 +304,7 @@ def intel_error_count():
                            condition = q_condition_failure_id,
                            initial = q_initial_failure_id,
                            reduce = q_reduce_failure_id)
+        job.join()
         jobs.append(job)
     gevent.joinall(jobs)
     failure_id_to_count = {}
@@ -460,6 +463,7 @@ def ep_error_count():
                                condition = q_condition,
                                initial = q_initial,
                                reduce = q_reduce)
+            job.join()
             jobs.append(job)
         gevent.joinall(jobs)
         for (collection_name, job) in zip(collection_names, jobs):
