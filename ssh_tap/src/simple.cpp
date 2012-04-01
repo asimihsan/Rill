@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
     std::string output;
     bool is_prompt_synced = false;
 
-	const int read_buffer_size = 0x4000;
+	const int read_buffer_size = 0x80000;
 	char read_buffer[read_buffer_size];
 
 #ifdef WIN32
