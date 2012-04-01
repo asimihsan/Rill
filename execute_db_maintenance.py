@@ -41,11 +41,13 @@ logger.addHandler(fh)
 
 commands = [ \
              "service mongod stop",
-             "sleep 20",
-             "mongod --dbpath /var/lib/mongo --repair",
+             "sleep 10",
+             #"pkill -9 mongod",
+             "numactl --interleave=all mongod --dbpath /var/lib/mongo --repair",
+             "service mongod stop",
              "chown -R mongod:mongod /var/lib/mongo",
              "service mongod start",
-             "sleep 20"
+             "sleep 10"
              ]
 hosts = ["magpie", "rabbit", "rat", "fox"]
 
