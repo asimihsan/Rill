@@ -19,6 +19,7 @@ import signal
 from glob import glob
 import pprint
 import random
+import heapq
 
 import zmq
 
@@ -168,8 +169,8 @@ def main(masspinger_zeromq_binding,
                                                   username = username,
                                                   password = password,
                                                   zeromq_bind = ssh_tap_zeromq_binding).strip()
-    if verbose:
-        ssh_tap_command += " --verbose"
+    #if verbose:
+    #    ssh_tap_command += " --verbose"
     logger.debug("ssh_tap_command: %s" % (ssh_tap_command, ))
     ssh_tap_interval_minutes_minimum = 60
     ssh_tap_interval_minutes_maximum = 120
@@ -190,17 +191,21 @@ def main(masspinger_zeromq_binding,
     parser_command = parser_template.substitute(executable = parser_executable,
                                                 ssh_tap_zeromq_bind = ssh_tap_zeromq_binding,
                                                 parser_zeromq_bind = parser_zeromq_binding).strip()
-    if verbose:
-        parser_command += " --verbose"
+    #if verbose:
+    #    parser_command += " --verbose"
     logger.debug("parser command: %s" % (parser_command, ))
     # ------------------------------------------------------------------------
 
     (db, collection) = setup_database(collection_name)
+    parser_accumulator = []
 
     poller = zmq.Poller()
     poller.register(masspinger_sub_socket, zmq.POLLIN)
     poller.register(parser_sub_socket, zmq.POLLIN)
     poll_interval = 1000
+
+    # !!AI debug force it to run now!
+    next_ssh_tap_runtime = datetime.datetime.utcnow()
     try:
         while 1:
             if host_alive:
@@ -230,6 +235,7 @@ def main(masspinger_zeromq_binding,
                 parser_process = None
 
             socks = dict(poller.poll(poll_interval))
+            parser_accumulator = send_old_parser_socket_data(host, parser_name, db, collection, parser_accumulator)
             if socks.get(masspinger_sub_socket, None) == zmq.POLLIN:
                 # Receive host liveliness.
                 [hostname, contents] = masspinger_sub_socket.recv_multipart()
@@ -237,7 +243,7 @@ def main(masspinger_zeromq_binding,
                 last_host_response_time = time.time()
                 logger.debug(contents)
             if socks.get(parser_sub_socket, None) == zmq.POLLIN:
-                handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection)
+                parser_accumulator = handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection, parser_accumulator)
             if (host_alive == False) and ((time.time() - last_host_response_time) > last_host_response_time_threshold):
                 # If we haven't received an update about the host
                 # within a certain amount of time assume masspinger
@@ -251,18 +257,62 @@ def main(masspinger_zeromq_binding,
         terminate_process(parser_process, "parser_process", kill=True)
         logger.debug("finished.")
 
-def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection):
+# --------------------------------------------------------
+#   Insert data once a minute. The reads kill the
+#   database because of how fast and constant they are
+#   so batch up both the reads to determine if the logs
+#   already exist and the insertion.
+#
+#   Do this by maintaining a heap of logs. Logs are
+#   stored as (datetime_received, log_data). Hence
+#   the smallest element of the heap, accessible as O(1),
+#   is the oldest log received. If the oldest log received
+#   is more than 'insert_interval' old insert up to
+#   'chunk_size' elements of the heap.
+#
+#   Irregardless of when logs are received if we have
+#   more than 'chunk_size' in the heap insert them now;
+#   you're going to run into MongoDB's 16MB query limit
+#   if you don't. (16*1024 / 10000 ~= 1.6KB, safe).
+# --------------------------------------------------------
+def send_old_parser_socket_data(host, parser_name, db, collection, parser_accumulator):
+    logger = logging.getLogger("%s.main.%s.%s.send_old_parser_socket_data" % (APP_NAME, host, parser_name))
+    datetime_now = datetime.datetime.utcnow()
+    insert_interval = datetime.timedelta(minutes=1)
+
+    if len(parser_accumulator) == 0:
+        return parser_accumulator
+    # The accumulator isn't full, so flush in chunk
+    # pieces every interval.
+    smallest_element = heapq.nsmallest(1, parser_accumulator)[0]
+    smallest_datetime = smallest_element[0]
+    if (datetime_now - smallest_datetime) < insert_interval:
+        return parser_accumulator
+
+    # The oldest log is older than 'insert_interval'.
+    logger.debug("oldest log is too old")
+    chunk_size = 10000
+    data_to_insert = []
+    while len(parser_accumulator) > 0 and len(data_to_insert) <= chunk_size:
+        datum = heapq.heappop(parser_accumulator)[1]
+        data_to_insert.append(datum)
+    if len(data_to_insert) > 0:
+        logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
+        insert_into_collection(collection, data_to_insert)
+    return parser_accumulator
+
+def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection, parser_accumulator):
     logger = logging.getLogger("%s.main.%s.%s.handle_parser_socket_activity" % (APP_NAME, host, parser_name))
     incoming_string = parser_sub_socket.recv()
-    logger.debug("Update: '%s'" % (incoming_string, ))
+    #logger.debug("Update: '%s'" % (incoming_string, ))
     try:
         incoming_object = json.loads(incoming_string)
     except:
         logger.exception("Can't decode command:\n%s" % (incoming_string, ))
-        return None
+        return parser_accumulator
     if not validate_command(incoming_object):
         logger.error("Not a valid command: \n%s" % (incoming_object))
-        return None
+        return parser_accumulator
 
     # --------------------------------------------------------
     # Re-process the dict to get a real datetime object.
@@ -278,14 +328,28 @@ def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, coll
         data_to_store.pop(key)
     data_to_store["datetime"] = datetime_obj
     if datetime.datetime.utcnow() - five_days > datetime_obj:
-        logger.debug("Log is too old.")
-        return None
+        #logger.debug("Log is too old.")
+        return parser_accumulator
     # --------------------------------------------------------
 
-    if db.is_log_already_in_collection(collection, incoming_object):
-        logger.debug("Log already exists in collection.")
-        return None
-    insert_into_collection(collection, data_to_store)
+    chunk_size = 10000
+    heapq.heappush(parser_accumulator, (datetime.datetime.utcnow(), data_to_store))
+    data_to_insert = []
+
+    if len(parser_accumulator) > chunk_size:
+        # The accumulator exceeds the chunk size. Flush
+        # in chunk_size pieces.
+        for i in xrange(chunk_size):
+            datum = heapq.heappop(parser_accumulator)[1]
+            data_to_insert.append(datum)
+    if len(data_to_insert) > 0:
+        logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
+        insert_into_collection(collection, data_to_insert)
+    # --------------------------------------------------------
+
+    if len(parser_accumulator) % 1000 == 0:
+        logger.debug("returning parser_accumulator of length: %s" % (len(parser_accumulator), ))
+    return parser_accumulator
 
 required_fields = ["contents", "year", "month", "day", "hour", "minute", "second"]
 def validate_command(command):
@@ -297,6 +361,9 @@ def validate_command(command):
 def setup_database(collection_name):
     db = database.Database()
     collection = db.get_collection(collection_name)
+    collection.ensure_index("contents_hash",
+                            unique=True,
+                            drop_dups=True)
     return (db, collection)
 
 @retry()
@@ -308,7 +375,8 @@ def start_process(command_line, verbose = False):
     logger.debug("Starting: command_line: %s, verbose: %s" % (command_line, verbose))
     null_fp = open(os.devnull, "w")
     if platform.system() == "Linux":
-        if verbose:
+        if 0:
+        #if verbose:
             proc = subprocess.Popen(command_line,
                                     shell=True)
         else:
