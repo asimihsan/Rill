@@ -60,6 +60,7 @@ def main():
 
     database_names = ["logs", "pings", "mv_trees"]
     oldest_date = datetime.datetime.utcnow() - five_days
+    newest_date = datetime.datetime.utcnow() + five_days
 
     for database_name in database_names:
         logger.debug("database_name: %s" % (database_name, ))
@@ -76,7 +77,9 @@ def main():
             logger.debug("collection_name: %s" % (collection_name, ))
             while True:
                 collection = write_database[collection_name]
-                cursor = collection.find({datetime_query_string: {'$lt': oldest_date}}, {'_id': 1}).sort(datetime_query_string, 1).limit(remove_block_size)
+                cursor = collection.find({"$or": [{datetime_query_string: {'$lt': oldest_date}},
+                                                  {datetime_query_string: {'$gt': newest_date}}]},
+                                         {'_id': 1}).sort(datetime_query_string, 1).limit(remove_block_size)
                 logger.debug("collection: %s. total number of documents: %s. documents to delete remaining: %s" % (collection_name, collection.count(), cursor.count()))
                 count = cursor.count(with_limit_and_skip = True)
                 if count == 0:

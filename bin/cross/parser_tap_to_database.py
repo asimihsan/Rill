@@ -15,6 +15,7 @@ import re
 import json
 import platform
 import argparse
+import heapq
 
 import pymongo
 import pymongo.binary
@@ -75,14 +76,15 @@ def get_args():
     return args
 
 @retry()
-def setup_database(args):
+def setup_database(collection_name):
     collection = None
-    if args.collection:
-        db = database.Database()
-        collection_name = args.collection
-        collection = db.get_collection(collection_name)
-        #for field in fields_to_index:
-        #    db.create_index(collection_name, field)
+    db = database.Database()
+    collection = db.get_collection(collection_name)
+    collection.ensure_index("contents_hash",
+                            unique=True,
+                            drop_dups=True)
+    #for field in fields_to_index:
+    #    db.create_index(collection_name, field)
     return collection
 
 required_fields = ["contents", "year", "month", "day", "hour", "minute", "second"]
@@ -93,13 +95,14 @@ def validate_command(command):
 
 def main():
     args = get_args()
-    logger = logging.getLogger("%s.%s" % (APP_NAME, args.collection))
+    collection_name = args.collection
+    logger = logging.getLogger("%s.%s" % (APP_NAME, collection_name))
     if args.verbose:
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled.")
     logger.debug("entry.")
-    collection = setup_database(args)
+    collection = setup_database(collection_name)
 
     context = zmq.Context(1)
 
@@ -114,39 +117,112 @@ def main():
     #subscription_socket.setsockopt(zmq.SWAP, 100 * 1024 * 1024) # offload 100MB of messages onto disk
     # ------------------------------------------------------------------------
 
+    poller = zmq.Poller()
+    poller.register(subscription_socket, zmq.POLLIN)
+    poll_interval = 1000
+    parser_accumulator = []
     try:
         while 1:
-            incoming_string = subscription_socket.recv()
-            logger.debug("Update: '%s'" % (incoming_string, ))
-            try:
-                incoming_object = json.loads(incoming_string)
-            except:
-                logger.exception("Can't decode command:\n%s" % (incoming_string, ))
-                continue
-            if not validate_command(incoming_object):
-                logger.error("Not a valid command: \n%s" % (incoming_object))
-                continue
+            socks = dict(poller.poll(poll_interval))
+            parser_accumulator = send_old_parser_socket_data(collection_name, collection, parser_accumulator)
+            if socks.get(subscription_socket, None) == zmq.POLLIN:
+                parser_accumulator = handle_parser_socket_activity(subscription_socket, collection_name, collection, parser_accumulator)
 
-            # --------------------------------------------------------
-            # Re-process the dict to get a real datetime object.
-            # --------------------------------------------------------
-            datetime_obj = datetime.datetime(int(incoming_object["year"]),
-                                             int(incoming_object["month"]),
-                                             int(incoming_object["day"]),
-                                             int(incoming_object["hour"]),
-                                             int(incoming_object["minute"]),
-                                             int(incoming_object["second"]))
-            data_to_store = incoming_object.copy()
-            for key in ["year", "month", "day", "hour", "minute", "second"]:
-                data_to_store.pop(key)
-            data_to_store["datetime"] = datetime_obj
-            # --------------------------------------------------------
-
-            insert_into_collection(collection, data_to_store)
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
         logger.debug("exiting")
+
+# --------------------------------------------------------
+#   Insert data once a minute. The reads kill the
+#   database because of how fast and constant they are
+#   so batch up both the reads to determine if the logs
+#   already exist and the insertion.
+#
+#   Do this by maintaining a heap of logs. Logs are
+#   stored as (datetime_received, log_data). Hence
+#   the smallest element of the heap, accessible as O(1),
+#   is the oldest log received. If the oldest log received
+#   is more than 'insert_interval' old insert up to
+#   'chunk_size' elements of the heap.
+#
+#   Irregardless of when logs are received if we have
+#   more than 'chunk_size' in the heap insert them now;
+#   you're going to run into MongoDB's 16MB query limit
+#   if you don't. (16*1024 / 10000 ~= 1.6KB, safe).
+# --------------------------------------------------------
+def send_old_parser_socket_data(collection_name, collection, parser_accumulator):
+    logger = logging.getLogger("%s.%s.send_old_parser_socket_data" % (APP_NAME, collection_name))
+    datetime_now = datetime.datetime.utcnow()
+    insert_interval = datetime.timedelta(minutes=1)
+
+    if len(parser_accumulator) == 0:
+        return parser_accumulator
+    # The accumulator isn't full, so flush in chunk
+    # pieces every interval.
+    smallest_element = heapq.nsmallest(1, parser_accumulator)[0]
+    smallest_datetime = smallest_element[0]
+    logger.debug("smallest interval: %s" % (datetime_now - smallest_datetime, ))
+    if (datetime_now - smallest_datetime) < insert_interval:
+        return parser_accumulator
+
+    # The oldest log is older than 'insert_interval'.
+    logger.debug("oldest log is too old")
+    chunk_size = 10000
+    data_to_insert = []
+    while len(parser_accumulator) > 0 and len(data_to_insert) <= chunk_size:
+        datum = heapq.heappop(parser_accumulator)[1]
+        data_to_insert.append(datum)
+    if len(data_to_insert) > 0:
+        logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
+        insert_into_collection(collection, data_to_insert)
+    return parser_accumulator
+
+def handle_parser_socket_activity(subscription_socket, collection_name, collection, parser_accumulator):
+    logger = logging.getLogger("%s.%s.handle_parser_socket_activity" % (APP_NAME, collection_name))
+    incoming_string = subscription_socket.recv()
+    try:
+        incoming_object = json.loads(incoming_string)
+    except:
+        logger.exception("Can't decode command:\n%s" % (incoming_string, ))
+        return parser_accumulator
+    if not validate_command(incoming_object):
+        logger.error("Not a valid command: \n%s" % (incoming_object))
+        return parser_accumulator
+
+    # --------------------------------------------------------
+    # Re-process the dict to get a real datetime object.
+    # --------------------------------------------------------
+    datetime_obj = datetime.datetime(int(incoming_object["year"]),
+                                     int(incoming_object["month"]),
+                                     int(incoming_object["day"]),
+                                     int(incoming_object["hour"]),
+                                     int(incoming_object["minute"]),
+                                     int(incoming_object["second"]))
+    data_to_store = incoming_object.copy()
+    for key in ["year", "month", "day", "hour", "minute", "second"]:
+        data_to_store.pop(key)
+    data_to_store["datetime"] = datetime_obj
+    # --------------------------------------------------------
+
+    chunk_size = 10000
+    heapq.heappush(parser_accumulator, (datetime.datetime.utcnow(), data_to_store))
+    data_to_insert = []
+
+    if len(parser_accumulator) > chunk_size:
+        # The accumulator exceeds the chunk size. Flush
+        # in chunk_size pieces.
+        for i in xrange(chunk_size):
+            datum = heapq.heappop(parser_accumulator)[1]
+            data_to_insert.append(datum)
+    if len(data_to_insert) > 0:
+        logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
+        insert_into_collection(collection, data_to_insert)
+    # --------------------------------------------------------
+
+    if len(parser_accumulator) % 1000 == 0:
+        logger.debug("returning parser_accumulator of length: %s" % (len(parser_accumulator), ))
+    return parser_accumulator
 
 @retry()
 def insert_into_collection(collection, data):

@@ -43,7 +43,7 @@ commands = [ \
              "service mongod stop",
              "sleep 10",
              #"pkill -9 mongod",
-             "numactl --interleave=all mongod --dbpath /var/lib/mongo --repair",
+             "numactl --interleave=all mongod --dbpath /var/lib/mongo --repair < /dev/null &> /dev/null",
              "service mongod stop",
              "chown -R mongod:mongod /var/lib/mongo",
              "service mongod start",
