@@ -18,15 +18,17 @@ from string import Template
 import signal
 from glob import glob
 import pprint
+import random
 
 import zmq
-from zmq.eventloop.ioloop import IOLoop, PeriodicCallback
-from zmq.eventloop.zmqstream import ZMQStream
+
+from utilities import retry
+import database
 
 # -----------------------------------------------------------------------------
 #   Logging.
 # -----------------------------------------------------------------------------
-APP_NAME = "robust_ssh_tap"
+APP_NAME = "reconcile_log"
 import logging
 logger = logging.getLogger(APP_NAME)
 logger.setLevel(logging.INFO)
@@ -59,18 +61,19 @@ try:
 except:
     logger.exception("unhandled exception during constant creation.")
     raise
+five_days = datetime.timedelta(days=5)
 # -----------------------------------------------------------------------------
 
 def main(masspinger_zeromq_binding,
          ssh_tap_zeromq_binding,
          parser_zeromq_binding,
          parser_name,
-         results_zeromq_binding,
          host,
          command,
          username,
          password,
          timeout,
+         collection_name,
          verbose):
     logger = logging.getLogger("%s.main.%s.%s" % (APP_NAME, host, parser_name))
     logger.debug("entry.")
@@ -78,11 +81,11 @@ def main(masspinger_zeromq_binding,
     logger.debug("ssh_tap_zeromq_binding: %s" % (ssh_tap_zeromq_binding, ))
     logger.debug("parser_zeromq_binding: %s" % (parser_zeromq_binding, ))
     logger.debug("parser_name: %s" % (parser_name, ))
-    logger.debug("results_zeromq_binding: %s" % (results_zeromq_binding, ))
     logger.debug("host: %s" % (host, ))
     logger.debug("command: %s" % (command, ))
     logger.debug("username: %s" % (username, ))
     logger.debug("timeout: %s" % (timeout, ))
+    logger.debug("collection_name: %s" % (collection_name, ))
     logger.debug("verbose: %s" % (verbose, ))
 
     # ------------------------------------------------------------------------
@@ -137,6 +140,16 @@ def main(masspinger_zeromq_binding,
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
+    #   Subscribing to the single parser instance.
+    #   Note we haven't set a high water mark, because we refuse to drop
+    #   any results. Godspeed to you!
+    # ------------------------------------------------------------------------
+    parser_sub_socket = context.socket(zmq.SUB)
+    parser_sub_socket.connect(parser_zeromq_binding)
+    parser_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
+    # ------------------------------------------------------------------------
+
+    # ------------------------------------------------------------------------
     # State for monitoring the liveliness of the host.
     # ------------------------------------------------------------------------
     host_alive = True
@@ -158,45 +171,14 @@ def main(masspinger_zeromq_binding,
     if verbose:
         ssh_tap_command += " --verbose"
     logger.debug("ssh_tap_command: %s" % (ssh_tap_command, ))
+    ssh_tap_interval_minutes_minimum = 60
+    ssh_tap_interval_minutes_maximum = 120
+    ssh_tap_interval = datetime.timedelta(minutes = random.randint(ssh_tap_interval_minutes_minimum, ssh_tap_interval_minutes_maximum))
+    next_ssh_tap_runtime = datetime.datetime.utcnow() + ssh_tap_interval
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
-    #   If we're performing a tail that does not have "follow=name" in it
-    #   then we're going to fail to follow rotated files. Launch a
-    #   separate instance to track the inode of the file being tailed,
-    #   and restart everything if it rolls.
-    # ------------------------------------------------------------------------
-    tail_query_inode_process = None
-    tail_query_inode_sub_socket = None
-    last_inode = None
-    is_tail_query_inode_required = command.startswith("tail") and "follow=name" not in command
-    if is_tail_query_inode_required:
-        logger.debug("perform tail query inode monitoring.")
-        log_filepath = command.split()[-1].strip("'\r\n")
-        logger.debug("log filepath: '%s'" % (log_filepath, ))
-        tail_query_inode_subcmd = tail_query_inode_template.substitute(log_filepath = log_filepath).strip()
-        current_ssh_tap_zeromq_binding_port = int(ssh_tap_zeromq_binding.split(":")[-1])
-        logger.debug("current_ssh_tap_zeromq_binding_port: %s" % (current_ssh_tap_zeromq_binding_port, ))
-        tail_query_inode_zeromq_binding = "tcp://127.0.0.1:%s" % (current_ssh_tap_zeromq_binding_port + 1, )
-        tail_query_inode_command = ssh_tap_template.substitute(executable = ssh_tap_filepath,
-                                                               host = host,
-                                                               command = tail_query_inode_subcmd,
-                                                               username = username,
-                                                               password = password,
-                                                               zeromq_bind = tail_query_inode_zeromq_binding).strip()
-        if verbose:
-            tail_query_inode_command += " --verbose"
-        logger.debug("tail_query_inode_command: %s" % (tail_query_inode_command, ))
-
-        tail_query_inode_sub_socket = context.socket(zmq.SUB)
-        tail_query_inode_sub_socket.connect(tail_query_inode_zeromq_binding)
-        tail_query_inode_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
-    # ------------------------------------------------------------------------
-
-
-    # ------------------------------------------------------------------------
-    # State for the parser. Combination of a parser and a
-    # parser_tap_to_database.
+    # State for the parser.
     # ------------------------------------------------------------------------
     logger.debug("parser location: %s" % (parser_filepath, ))
     parser_process = None
@@ -211,64 +193,41 @@ def main(masspinger_zeromq_binding,
     if verbose:
         parser_command += " --verbose"
     logger.debug("parser command: %s" % (parser_command, ))
-
-    parser_tap_to_database_process = None
-    collection = "%s_%s" % (host, parser_name)
-    parser_tap_to_database_executable = python_executable + ' ' + parser_tap_to_database_filepath
-    parser_tap_to_database_command = parser_tap_to_database_template.substitute(executable = parser_tap_to_database_executable,
-                                                                                results_zeromq_bind = parser_zeromq_binding,
-                                                                                collection = collection).strip()
-    if verbose:
-        parser_tap_to_database_command += " --verbose"
-    logger.debug("parser_tap_to_database command: %s" % (parser_tap_to_database_command, ))
     # ------------------------------------------------------------------------
+
+    (db, collection) = setup_database(collection_name)
 
     poller = zmq.Poller()
     poller.register(masspinger_sub_socket, zmq.POLLIN)
-    if is_tail_query_inode_required:
-        poller.register(tail_query_inode_sub_socket, zmq.POLLIN)
+    poller.register(parser_sub_socket, zmq.POLLIN)
     poll_interval = 1000
     try:
         while 1:
             if host_alive:
                 if ssh_tap_process is None:
-                    logger.debug("ssh_tap_process not running, so restart it.")
-                    ssh_tap_process = start_process(ssh_tap_command, verbose)
-                if is_tail_query_inode_required and tail_query_inode_process is None:
-                    logger.debug("tail_query_inode_process not running, so restart it.")
-                    tail_query_inode_process = start_process(tail_query_inode_command, verbose)
+                    if (datetime.datetime.utcnow() > next_ssh_tap_runtime):
+                        logger.info("ssh_tap_process not running, so restart it.")
+                        ssh_tap_process = start_process(ssh_tap_command, verbose)
                 if parser_process is None:
-                    logger.debug("parser_process not running, so restart it.")
+                    logger.info("parser_process not running, so restart it.")
                     parser_process = start_process(parser_command, verbose)
-                if parser_tap_to_database_process is None:
-                    logger.debug("parser_tap_to_database_process not running, so restart it.")
-                    parser_tap_to_database_process = start_process(parser_tap_to_database_command, verbose)
             else:
                 if ssh_tap_process and (ssh_tap_process.poll() is None):
-                    logger.debug("ssh_tap_process running but host dead, so kill it.")
+                    logger.info("ssh_tap_process running but host dead, so kill it.")
                     terminate_process(ssh_tap_process, "ssh_tap_process")
-                if is_tail_query_inode_required and tail_query_inode_process and (tail_query_inode_process.poll() is None):
-                    logger.debug("tail_query_inode_process running but host dead, so kill it.")
-                    terminate_process(tail_query_inode_process, "tail_query_inode_process")
                 if parser_process and (parser_process.poll() is None):
-                    logger.debug("parser running but host dead, so kill it.")
+                    logger.info("parser running but host dead, so kill it.")
                     terminate_process(parser_process, "parser_process")
-                if parser_tap_to_database_process and (parser_tap_to_database_process.poll() is None):
-                    logger.debug("parser_tap_to_database running but host dead, so kill it.")
-                    terminate_process(parser_tap_to_database_process, "parser_tap_to_database_process")
 
             if ssh_tap_process and (ssh_tap_process.poll() is not None):
-                logger.debug("ssh_tap_process ended, return code %s." % (ssh_tap_process.poll(), ))
+                logger.info("ssh_tap_process ended, return code %s." % (ssh_tap_process.poll(), ))
                 ssh_tap_process = None
-            if is_tail_query_inode_required and tail_query_inode_process and (tail_query_inode_process.poll() is not None):
-                logger.debug("tail_query_inode_process ended, return code %s." % (tail_query_inode_process.poll(), ))
-                tail_query_inode_process = None
+                ssh_tap_interval = datetime.timedelta(minutes = random.randint(ssh_tap_interval_minutes_minimum, ssh_tap_interval_minutes_maximum))
+                next_ssh_tap_runtime = datetime.datetime.utcnow() + ssh_tap_interval
+                terminate_process(parser_process, "parser_process")
             if parser_process and (parser_process.poll() is not None):
-                logger.debug("parser_process ended, return code %s." % (parser_process.poll(), ))
+                logger.info("parser_process ended, return code %s." % (parser_process.poll(), ))
                 parser_process = None
-            if parser_tap_to_database_process and (parser_tap_to_database_process.poll() is not None):
-                logger.debug("parser_tap_to_database_process ended, return code %s." % (parser_tap_to_database_process.poll(), ))
-                parser_tap_to_database_process = None
 
             socks = dict(poller.poll(poll_interval))
             if socks.get(masspinger_sub_socket, None) == zmq.POLLIN:
@@ -277,35 +236,72 @@ def main(masspinger_zeromq_binding,
                 host_alive = contents == "responsive"
                 last_host_response_time = time.time()
                 logger.debug(contents)
+            if socks.get(parser_sub_socket, None) == zmq.POLLIN:
+                handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection)
             if (host_alive == False) and ((time.time() - last_host_response_time) > last_host_response_time_threshold):
                 # If we haven't received an update about the host
                 # within a certain amount of time assume masspinger
                 # is dead and further assume the host is alive.
                 logger.debug("Assuming masspinger is dead, and host is alive")
                 host_alive = True
-            if is_tail_query_inode_required and socks.get(tail_query_inode_sub_socket, None) == zmq.POLLIN:
-                contents = tail_query_inode_sub_socket.recv()
-                try:
-                    contents_decoded = json.loads(contents)
-                except:
-                    logger.error("couldn't decode inode socket contents: %s" % (contents, ))
-                else:
-                    if contents_decoded["contents"].strip().isdigit():
-                        old_last_inode = last_inode
-                        last_inode = contents_decoded["contents"].strip()
-                        logger.debug("inode updated from %s to %s" % (old_last_inode, last_inode))
-                        if all(elem is not None for elem in [last_inode, old_last_inode]) and (last_inode != old_last_inode):
-                            logger.debug("the file we're tailing has rotated.")
-                            terminate_process(ssh_tap_process, "ssh_tap_process")
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
         terminate_process(ssh_tap_process, "ssh_tap_process", kill=True)
         terminate_process(parser_process, "parser_process", kill=True)
-        terminate_process(parser_tap_to_database_process, "parser_tap_to_database_process", kill=True)
-        if is_tail_query_inode_required:
-            terminate_process(tail_query_inode_process, "tail_query_inode_process", kill=True)
         logger.debug("finished.")
+
+def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection):
+    logger = logging.getLogger("%s.main.%s.%s.handle_parser_socket_activity" % (APP_NAME, host, parser_name))
+    incoming_string = parser_sub_socket.recv()
+    logger.debug("Update: '%s'" % (incoming_string, ))
+    try:
+        incoming_object = json.loads(incoming_string)
+    except:
+        logger.exception("Can't decode command:\n%s" % (incoming_string, ))
+        return None
+    if not validate_command(incoming_object):
+        logger.error("Not a valid command: \n%s" % (incoming_object))
+        return None
+
+    # --------------------------------------------------------
+    # Re-process the dict to get a real datetime object.
+    # --------------------------------------------------------
+    datetime_obj = datetime.datetime(int(incoming_object["year"]),
+                                     int(incoming_object["month"]),
+                                     int(incoming_object["day"]),
+                                     int(incoming_object["hour"]),
+                                     int(incoming_object["minute"]),
+                                     int(incoming_object["second"]))
+    data_to_store = incoming_object.copy()
+    for key in ["year", "month", "day", "hour", "minute", "second"]:
+        data_to_store.pop(key)
+    data_to_store["datetime"] = datetime_obj
+    if datetime.datetime.utcnow() - five_days > datetime_obj:
+        logger.debug("Log is too old.")
+        return None
+    # --------------------------------------------------------
+
+    if db.is_log_already_in_collection(collection, incoming_object):
+        logger.debug("Log already exists in collection.")
+        return None
+    insert_into_collection(collection, data_to_store)
+
+required_fields = ["contents", "year", "month", "day", "hour", "minute", "second"]
+def validate_command(command):
+    if not all(field in command for field in required_fields):
+        return False
+    return True
+
+@retry()
+def setup_database(collection_name):
+    db = database.Database()
+    collection = db.get_collection(collection_name)
+    return (db, collection)
+
+@retry()
+def insert_into_collection(collection, data):
+    collection.insert(data)
 
 def start_process(command_line, verbose = False):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
@@ -354,7 +350,7 @@ def terminate_process(process_object, process_name, kill=False):
 
 if __name__ == "__main__":
     logger.debug("starting.")
-    parser = argparse.ArgumentParser("Execution of SSH commands robust to network failure.")
+    parser = argparse.ArgumentParser("Make sure all logs from servers are present in the database.")
     parser.add_argument("--masspinger",
                         dest="masspinger_zeromq_binding",
                         metavar="ZEROMQ_BINDING",
@@ -375,11 +371,6 @@ if __name__ == "__main__":
                         metavar="PARSER_NAME",
                         required=True,
                         help="Name of the parser we'll look for to execute to parse ssh_tap output.")
-    parser.add_argument("--results",
-                        dest="results_zeromq_binding",
-                        metavar="ZEROMQ_BINDING",
-                        required=True,
-                        help="ZeroMQ binding we PUBLISH our results to.")
     parser.add_argument("--host",
                         dest="host",
                         metavar="DNS_OR_IP",
@@ -399,12 +390,17 @@ if __name__ == "__main__":
                         dest="password",
                         metavar="PASSWORD",
                         default=None,
-                        help="Password to SSH With.")
+                        help="Password to SSH with.")
     parser.add_argument("--timeout",
                         dest="timeout",
                         metavar="TIMEOUT",
                         default=None,
                         help="Timeout. <= 0 is infinity.")
+    parser.add_argument("--collection_name",
+                        dest="collection_name",
+                        metavar="COLLECTION",
+                        default=None,
+                        help="MongoDB collection to insert logs into.")
     parser.add_argument("--verbose",
                         dest="verbose",
                         action='store_true',
@@ -420,13 +416,12 @@ if __name__ == "__main__":
          ssh_tap_zeromq_binding = args.ssh_tap_zeromq_binding,
          parser_zeromq_binding = args.parser_zeromq_binding,
          parser_name = args.parser_name,
-         results_zeromq_binding = args.results_zeromq_binding,
          host = args.host,
          command = args.command,
          username = args.username,
          password = args.password,
          timeout = args.timeout,
+         collection_name = args.collection_name,
          verbose = args.verbose)
 
     logger.debug("finishing.")
-

@@ -1,6 +1,8 @@
 import datetime
 import pymongo
 from utilities import retry
+import hashlib
+import base64
 
 import time
 import functools
@@ -8,7 +10,7 @@ import functools
 # -----------------------------------------------------------------------------
 #   Database constants.
 # -----------------------------------------------------------------------------
-servers = ["magpie:27017", "mink:27017", "rabbit:27107", "rat:27107"]
+servers = ["magpie:27017", "mink:27017", "rabbit:27107", "rat:27107", "fox:27017"]
 # -----------------------------------------------------------------------------
 
 class Database(object):
@@ -54,6 +56,18 @@ class Database(object):
         else:
             index = [(field, index_type)]
         return collection.ensure_index(index)
+
+    @retry()
+    def is_log_already_in_collection(self,
+                                     collection,
+                                     log_datum):
+        contents_hash = log_datum["contents_hash"]
+        query_part = {"contents_hash": contents_hash}
+        results_cursor = collection.find(query_part)
+        if results_cursor.count() == 0:
+            return False
+        else:
+            return True
 
     @retry()
     def get_all_items_from_collection_newer_than(self,

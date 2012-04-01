@@ -3,6 +3,7 @@
 import os
 import sys
 import pdb
+import time
 
 import fabric
 from fabric.operations import sudo, run, put
@@ -46,12 +47,12 @@ commands = [ \
              "service mongod start",
              "sleep 20"
              ]
-hosts = ["magpie", "rabbit", "rat"]
+hosts = ["magpie", "rabbit", "rat", "fox"]
 
 def main():
     logger = logging.getLogger("%s.main" % (APP_NAME, ))
     for host in hosts:
-        logging.debug("working on host: %s" % (host, ))
+        logger.debug("working on host: %s" % (host, ))
         with settings(host_string = host,
                       user = USERNAME,
                       key_filename = KEY_FILENAME):
@@ -59,7 +60,8 @@ def main():
                 run(command)
 
 if __name__ == "__main__":
-    logging.debug("entry.")
+    logger.debug("entry. starting in 5 seconds...")
+    time.sleep(5)
     main()
 
 
