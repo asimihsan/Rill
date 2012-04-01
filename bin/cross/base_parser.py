@@ -16,12 +16,6 @@ import json
 import platform
 import argparse
 
-# !!AI hacks
-import pymongo
-import pymongo.binary
-import database
-from utilities import retry
-
 from whoosh.analysis import FancyAnalyzer
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.analysis import StandardAnalyzer
@@ -59,11 +53,6 @@ def get_args():
                         metavar="ZEROMQ_BINDING",
                         required=True,
                         help="ZeroMQ binding we PUBLISH our results to.")
-    parser.add_argument("--collection",
-                        dest="collection",
-                        metavar="NAME",
-                        default=None,
-                        help="MongoDB collection name")
     parser.add_argument("--verbose",
                         dest="verbose",
                         action='store_true',
@@ -71,17 +60,6 @@ def get_args():
                         help="Enable verbose debug mode.")
     args = parser.parse_args()
     return args
-
-@retry()
-def setup_database(args, fields_to_index):
-    collection = None
-    if args.collection:
-        db = database.Database()
-        collection_name = args.collection
-        collection = db.get_collection(collection_name)
-        for field in fields_to_index:
-            db.create_index(collection_name, field)
-    return collection
 
 re_line_breaks = re.compile("(\r\n|\n)", re.DOTALL)
 line_breaks = set(["\r\n", "\n"])
@@ -148,8 +126,9 @@ def get_log_data_and_excess_lines(full_lines, log_datum_class):
         return_value.append(log_datum)
     return (return_value, [])
 
+required_fields = ["contents"]
 def validate_command(command):
-    if "contents" not in command:
+    if not all(field in command for field in required_fields):
         return False
     return True
 
@@ -169,9 +148,7 @@ def main(app_name, log_datum_class, fields_to_index):
         logger.setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled.")
-    logger = logging.getLogger("%s.%s" % (APP_NAME, args.collection))
     logger.debug("entry. log_datum_class: %s" % (log_datum_class, ))
-    collection = setup_database(args, fields_to_index)
 
     context = zmq.Context(1)
 
@@ -208,6 +185,7 @@ def main(app_name, log_datum_class, fields_to_index):
             if not validate_command(incoming_object):
                 logger.error("Not a valid command: \n%s" % (incoming_object))
                 continue
+            assert("contents" in incoming_object)
             trailing_excess = ''.join([trailing_excess, incoming_object["contents"]])
             (new_full_lines, trailing_excess) = split_contents_and_return_excess(trailing_excess)
             full_lines.extend(new_full_lines)
@@ -224,46 +202,18 @@ def main(app_name, log_datum_class, fields_to_index):
             (log_data, full_lines) = get_log_data_and_excess_lines(full_lines, log_datum_class)
             for log_datum in log_data:
                 logger.debug("publishing:\n%r" % (log_datum, ))
-                if log_datum.get_dict_representation() is None:
+                datum_dict = log_datum.get_dict_representation()
+                if datum_dict is None:
                     logger.warning("log_datum not valid, skip.")
                     continue
-                publish_socket.send(json.dumps(log_datum.get_dict_representation()))
-
-                # !!AI hacks
-                # I can't figure out what I can't get thie data off the
-                # publish socket. So screw it, let's put it into the database
-                # right now.
-                if platform.system() == "Linux":
-                    logger.debug("!!AI hacks, just put it into the DB.")
-                    log_dict = log_datum.get_dict_representation()
-
-                    # --------------------------------------------------------
-                    # Re-process the dict to get a real datetime object.
-                    # --------------------------------------------------------
-                    datetime_obj = datetime.datetime(int(log_dict["year"]),
-                                                     int(log_dict["month"]),
-                                                     int(log_dict["day"]),
-                                                     int(log_dict["hour"]),
-                                                     int(log_dict["minute"]),
-                                                     int(log_dict["second"]))
-                    data_to_store = log_dict.copy()
-                    for key in ["year", "month", "day", "hour", "minute", "second"]:
-                        data_to_store.pop(key)
-                    data_to_store["datetime"] = datetime_obj
-                    # --------------------------------------------------------
-
-                    insert_into_collection(collection, data_to_store)
+                publish_socket.send(json.dumps(datum_dict))
             # ----------------------------------------------------------------
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
         logger.debug("exiting")
 
-@retry()
-def insert_into_collection(collection, data):
-    collection.insert(data)
-
 if __name__ == "__main__":
-    logger.error("This is the base_parser and is not intended to be executed directly.")
+    logger.error("Not intended for direct execution, pass in a log_datum class to main().")
     sys.exit(1)
 

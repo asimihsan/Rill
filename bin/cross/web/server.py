@@ -7,7 +7,7 @@ sys.path.append(cross_path)
 from utilities import retry
 
 import gevent
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey; monkey.patch_all(socket=False)
 
 import time
 import os
@@ -127,7 +127,6 @@ def shm_memory_charts():
     jobs = []
     for collection in collection_objects:
         job = gevent.spawn(db.get_shm_memory_data, collection)
-        job.join()
         jobs.append(job)
     gevent.joinall(jobs)
     memory_data = []
@@ -204,7 +203,6 @@ def shm_error_count():
                            condition = q_condition_failure_id,
                            initial = q_initial_failure_id,
                            reduce = q_reduce_failure_id)
-        job.join()
         jobs.append(job)
     gevent.joinall(jobs)
     failure_id_to_count = {}
@@ -305,7 +303,6 @@ def intel_error_count():
                            condition = q_condition_failure_id,
                            initial = q_initial_failure_id,
                            reduce = q_reduce_failure_id)
-        job.join()
         jobs.append(job)
     gevent.joinall(jobs)
     failure_id_to_count = {}
@@ -464,7 +461,6 @@ def ep_error_count():
                                condition = q_condition,
                                initial = q_initial,
                                reduce = q_reduce)
-            job.join()
             jobs.append(job)
         gevent.joinall(jobs)
         for (collection_name, job) in zip(collection_names, jobs):
