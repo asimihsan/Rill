@@ -201,6 +201,11 @@ def main(verbose):
                 if global_config.get_robust_ssh_tap_verbose():
                     command += " --verbose"
                 commands.append((command, host, parser_name, parser_zeromq_bind))
+
+                # Register the parser PUBLISH bindings with the service registry.
+                add_service_to_service_registry(port = service_registry_port,
+                                                service_name = "%s_%s" % (host, parser_name),
+                                                service_value = parser_zeromq_bind)
                 # ------------------------------------------------------------
 
                 # ------------------------------------------------------------
@@ -242,11 +247,6 @@ def main(verbose):
                 ssh_tap_port += 5
                 parser_port += 5
                 results_port += 5
-
-                # Register the parser PUBLISH bindings with the service registry.
-                add_service_to_service_registry(port = service_registry_port,
-                                                service_name = "%s_%s" % (host, parser_name),
-                                                service_value = parser_zeromq_bind)
         # --------------------------------------------------------------------
 
         logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))

@@ -151,7 +151,7 @@ namespace ssh_utils
                                int read_buffer_size,
                                std::stringstream &output)
     {   
-        int rc = libssh2_channel_read(channel, read_buffer, read_buffer_size);
+        int rc = libssh2_channel_read(channel, read_buffer, read_buffer_size - 1);
         if (rc > 0)
         {            
             int last_byte = (rc > (read_buffer_size - 1)) ? (read_buffer_size - 1) : rc;
