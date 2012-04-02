@@ -18,6 +18,7 @@ import pdb
 # ----------------------------------------------------------------------------
 #   Constants.
 # ----------------------------------------------------------------------------
+one_day = datetime.timedelta(days=1)
 five_days = datetime.timedelta(days=5)
 one_week = datetime.timedelta(days=7)
 two_weeks = datetime.timedelta(days=14)
@@ -60,7 +61,7 @@ def main():
 
     database_names = ["logs", "pings", "mv_trees"]
     oldest_date = datetime.datetime.utcnow() - five_days
-    newest_date = datetime.datetime.utcnow() + five_days
+    newest_date = datetime.datetime.utcnow() + one_day
 
     for database_name in database_names:
         logger.debug("database_name: %s" % (database_name, ))
