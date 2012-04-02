@@ -63,6 +63,7 @@ except:
     logger.exception("unhandled exception during constant creation.")
     raise
 five_days = datetime.timedelta(days=5)
+one_day = datetime.timedelta(days=1)
 # -----------------------------------------------------------------------------
 
 def main(masspinger_zeromq_binding,
@@ -204,8 +205,6 @@ def main(masspinger_zeromq_binding,
     poller.register(parser_sub_socket, zmq.POLLIN)
     poll_interval = 1000
 
-    # !!AI debug force it to run now!
-    next_ssh_tap_runtime = datetime.datetime.utcnow()
     try:
         while 1:
             if host_alive:
@@ -229,7 +228,7 @@ def main(masspinger_zeromq_binding,
                 ssh_tap_process = None
                 ssh_tap_interval = datetime.timedelta(minutes = random.randint(ssh_tap_interval_minutes_minimum, ssh_tap_interval_minutes_maximum))
                 next_ssh_tap_runtime = datetime.datetime.utcnow() + ssh_tap_interval
-                terminate_process(parser_process, "parser_process")
+                #terminate_process(parser_process, "parser_process")
             if parser_process and (parser_process.poll() is not None):
                 logger.info("parser_process ended, return code %s." % (parser_process.poll(), ))
                 parser_process = None
@@ -328,7 +327,10 @@ def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, coll
         data_to_store.pop(key)
     data_to_store["datetime"] = datetime_obj
     if datetime.datetime.utcnow() - five_days > datetime_obj:
-        #logger.debug("Log is too old.")
+        logger.debug("Log is too old.")
+        return parser_accumulator
+    if datetime.datetime.utcnow() + one_day < datetime_obj:
+        logger.debug("Log is too new.")
         return parser_accumulator
     # --------------------------------------------------------
 
@@ -368,7 +370,7 @@ def setup_database(collection_name):
 
 @retry()
 def insert_into_collection(collection, data):
-    collection.insert(data)
+    collection.insert(data, continue_on_error=True)
 
 def start_process(command_line, verbose = False):
     logger = logging.getLogger("%s.start_process" % (APP_NAME, ))
