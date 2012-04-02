@@ -250,12 +250,12 @@ def main(masspinger_zeromq_binding,
                 if is_tail_query_inode_required and tail_query_inode_process and (tail_query_inode_process.poll() is None):
                     logger.debug("tail_query_inode_process running but host dead, so kill it.")
                     terminate_process(tail_query_inode_process, "tail_query_inode_process")
-                if parser_process and (parser_process.poll() is None):
-                    logger.debug("parser running but host dead, so kill it.")
-                    terminate_process(parser_process, "parser_process")
-                if parser_tap_to_database_process and (parser_tap_to_database_process.poll() is None):
-                    logger.debug("parser_tap_to_database running but host dead, so kill it.")
-                    terminate_process(parser_tap_to_database_process, "parser_tap_to_database_process")
+                #if parser_process and (parser_process.poll() is None):
+                #    logger.debug("parser running but host dead, so kill it.")
+                #    terminate_process(parser_process, "parser_process")
+                #if parser_tap_to_database_process and (parser_tap_to_database_process.poll() is None):
+                #    logger.debug("parser_tap_to_database running but host dead, so kill it.")
+                #    terminate_process(parser_tap_to_database_process, "parser_tap_to_database_process")
 
             if ssh_tap_process and (ssh_tap_process.poll() is not None):
                 logger.debug("ssh_tap_process ended, return code %s." % (ssh_tap_process.poll(), ))
