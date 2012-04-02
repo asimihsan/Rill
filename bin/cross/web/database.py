@@ -46,7 +46,8 @@ class Database(object):
 
     @retry()
     def get_collection(self, collection_name):
-        return self.database[collection_name]
+        rv = self.database[collection_name]
+        return rv
 
     @retry()
     def get_collection_names(self, name_filter=None):
