@@ -226,7 +226,7 @@ def handle_parser_socket_activity(subscription_socket, collection_name, collecti
 
 @retry()
 def insert_into_collection(collection, data):
-    collection.insert(data)
+    collection.insert(data, continue_on_error=True)
 
 if __name__ == "__main__":
     main()
