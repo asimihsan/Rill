@@ -221,8 +221,9 @@ def main(verbose):
                 host = box_config.get_dns_hostname()
 
                 log_file_fullpath = log_file.get_full_path()
-                log_file_fullpath = log_file_fullpath.replace(r"/", r"\/")
-                command = """for file in \\\\\\`ls %s*\\\\\\`; do nice -n 19 ionice -c3 cat \\\\\\$file; done""" % (log_file_fullpath, )
+                #log_file_fullpath = log_file_fullpath.replace(r"/", r"\/")
+                #command = """for file in \\\\\$( find %s\\* ); do nice -n 19 ionice -c3 cat \\\\\$file; done""" % (log_file_fullpath, )
+                command = """find %s* | xargs | while read file; do sleep 5; nice -n 19 ionice -c3 cat \\\\\$file; done""" % (log_file_fullpath, )
 
                 username = box_config.get_username()
                 password = box_config.get_password()
@@ -263,6 +264,17 @@ def main(verbose):
 
         while 1:
             time.sleep(1)
+            for process in all_processes:
+                process_object = process.get_process_object()
+                process_name = process.get_process_name()
+                if process_object is None:
+                    logger.debug("process %s not running, so restart it." % (process_name, ))
+                    proc = start_process(process.get_command_line(), verbose)
+                    process.set_process_object(proc)
+                elif process_object and (process_object.poll() is not None):
+                    logger.debug("process %s ended, return code %s." % (process_name, process_object.poll()))
+                    terminate_process(process_object, process_name)
+                    process.set_process_object(None)
 
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
@@ -288,6 +300,9 @@ class Process(object):
 
     def get_process_object(self):
         return self.process_object
+
+    def set_process_object(self, process_object):
+        self.process_object = process_object
 
     def get_command_line(self):
         return self.command_line
