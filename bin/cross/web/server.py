@@ -1,13 +1,13 @@
 #!/usr/bin/env python2.7
 
+import gevent
+from gevent import monkey; monkey.patch_all()
+
 import os
 import sys
 cross_path = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
 sys.path.append(cross_path)
 from utilities import retry
-
-import gevent
-from gevent import monkey; monkey.patch_all(socket=False)
 
 import time
 import os
