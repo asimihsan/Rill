@@ -16,6 +16,7 @@ import json
 import platform
 import argparse
 import heapq
+import gc
 
 import pymongo
 import pymongo.binary
@@ -111,10 +112,10 @@ def main():
     # ------------------------------------------------------------------------
     logger.debug("Subscribing to parser at: %s" % (args.results_zeromq_binding, ))
     subscription_socket = context.socket(zmq.SUB)
-    subscription_socket.connect(args.results_zeromq_binding)
     subscription_socket.setsockopt(zmq.SUBSCRIBE, "")
-    subscription_socket.setsockopt(zmq.HWM, 100000) # only allow 100,000 messages into in-memory queue
-    #subscription_socket.setsockopt(zmq.SWAP, 100 * 1024 * 1024) # offload 100MB of messages onto disk
+    subscription_socket.setsockopt(zmq.HWM, 1000) # only allow 1000 messages into in-memory queue
+    subscription_socket.setsockopt(zmq.SWAP, 500 * 1024 * 1024) # offload 500MB of messages onto disk
+    subscription_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
 
     poller = zmq.Poller()
@@ -176,6 +177,7 @@ def send_old_parser_socket_data(collection_name, collection, parser_accumulator)
     if len(data_to_insert) > 0:
         logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
         insert_into_collection(collection, data_to_insert)
+        gc.collect()
     return parser_accumulator
 
 def handle_parser_socket_activity(subscription_socket, collection_name, collection, parser_accumulator):
@@ -218,6 +220,7 @@ def handle_parser_socket_activity(subscription_socket, collection_name, collecti
     if len(data_to_insert) > 0:
         logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
         insert_into_collection(collection, data_to_insert)
+        gc.collect()
     # --------------------------------------------------------
 
     if len(parser_accumulator) % 1000 == 0:
