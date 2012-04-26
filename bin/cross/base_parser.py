@@ -157,10 +157,10 @@ def main(app_name, log_datum_class, fields_to_index):
     # ------------------------------------------------------------------------
     logger.debug("Subscribing to ssh_tap at: %s" % (args.ssh_tap_zeromq_binding, ))
     subscription_socket = context.socket(zmq.SUB)
-    subscription_socket.connect(args.ssh_tap_zeromq_binding)
     subscription_socket.setsockopt(zmq.SUBSCRIBE, "")
-    subscription_socket.setsockopt(zmq.HWM, 100000) # only allow 100,000 messages into in-memory queue
-    #subscription_socket.setsockopt(zmq.SWAP, 100 * 1024 * 1024) # offload 100MB of messages onto disk
+    subscription_socket.setsockopt(zmq.HWM, 1000) # only allow 1000 messages into in-memory queue
+    subscription_socket.setsockopt(zmq.SWAP, 500 * 1024 * 1024) # offload 500MB of messages onto disk
+    subscription_socket.connect(args.ssh_tap_zeromq_binding)
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -168,6 +168,8 @@ def main(app_name, log_datum_class, fields_to_index):
     # ------------------------------------------------------------------------
     logger.debug("Publishing parsed results at: %s" % (args.results_zeromq_binding, ))
     publish_socket = context.socket(zmq.PUB)
+    publish_socket.setsockopt(zmq.HWM, 1000) # only allow 1000 messages into in-memory queue
+    publish_socket.setsockopt(zmq.SWAP, 500 * 1024 * 1024) # offload 500MB of messages onto disk
     publish_socket.bind(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
 
