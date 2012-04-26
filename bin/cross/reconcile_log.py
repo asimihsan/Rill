@@ -20,6 +20,7 @@ from glob import glob
 import pprint
 import random
 import heapq
+import gc
 
 import zmq
 
@@ -65,6 +66,40 @@ except:
 five_days = datetime.timedelta(days=5)
 one_day = datetime.timedelta(days=1)
 # -----------------------------------------------------------------------------
+
+def create_context():
+    context = zmq.Context(1)
+    return context
+
+def close_context(context):
+    context.destroy(linger=0)
+
+def create_parser_sub_socket(context, parser_zeromq_binding):
+    parser_sub_socket = context.socket(zmq.SUB)
+    parser_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
+    parser_sub_socket.setsockopt(zmq.HWM, 100) # only allow 100 messages into in-memory queue
+    parser_sub_socket.setsockopt(zmq.SWAP, 500 * 1024 * 1024) # offload 500MB of messages onto disk
+    parser_sub_socket.connect(parser_zeromq_binding)
+    return parser_sub_socket
+
+def create_masspinger_sub_socket(context, masspinger_zeromq_binding, host):
+    masspinger_sub_socket = context.socket(zmq.SUB)
+    masspinger_sub_socket.connect(masspinger_zeromq_binding)
+    masspinger_sub_socket.setsockopt(zmq.SUBSCRIBE, host)
+    return masspinger_sub_socket
+
+def close_socket(socket):
+    socket.close(linger=0)
+
+def create_poller(sockets):
+    poller = zmq.Poller()
+    for socket in sockets:
+        poller.register(socket, zmq.POLLIN)
+    return poller
+
+def close_poller(poller, sockets):
+    for socket in sockets:
+        poller.unregister(socket)
 
 def main(masspinger_zeromq_binding,
          ssh_tap_zeromq_binding,
@@ -130,26 +165,7 @@ def main(masspinger_zeromq_binding,
     assert(not all([is_bin_parser, is_cross_parser])), "Parser is both a binary and a cross."
     # ------------------------------------------------------------------------
 
-    context = zmq.Context(1)
-
-    # ------------------------------------------------------------------------
-    #   Subscribing to the single masspinger instance to determine if
-    #   the host is alive.
-    # ------------------------------------------------------------------------
-    masspinger_sub_socket = context.socket(zmq.SUB)
-    masspinger_sub_socket.connect(masspinger_zeromq_binding)
-    masspinger_sub_socket.setsockopt(zmq.SUBSCRIBE, host)
-    # ------------------------------------------------------------------------
-
-    # ------------------------------------------------------------------------
-    #   Subscribing to the single parser instance.
-    #   Note we haven't set a high water mark, because we refuse to drop
-    #   any results. Godspeed to you!
-    # ------------------------------------------------------------------------
-    parser_sub_socket = context.socket(zmq.SUB)
-    parser_sub_socket.connect(parser_zeromq_binding)
-    parser_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
-    # ------------------------------------------------------------------------
+    context = None
 
     # ------------------------------------------------------------------------
     # State for monitoring the liveliness of the host.
@@ -176,7 +192,7 @@ def main(masspinger_zeromq_binding,
     ssh_tap_interval_minutes_minimum = 60
     ssh_tap_interval_minutes_maximum = 120
     ssh_tap_interval = datetime.timedelta(minutes = random.randint(ssh_tap_interval_minutes_minimum, ssh_tap_interval_minutes_maximum))
-    next_ssh_tap_runtime = datetime.datetime.utcnow() + ssh_tap_interval
+    next_ssh_tap_runtime = datetime.datetime.utcnow() #+ ssh_tap_interval
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -200,13 +216,15 @@ def main(masspinger_zeromq_binding,
     (db, collection) = setup_database(collection_name)
     parser_accumulator = []
 
-    poller = zmq.Poller()
-    poller.register(masspinger_sub_socket, zmq.POLLIN)
-    poller.register(parser_sub_socket, zmq.POLLIN)
-    poll_interval = 1000
-
     try:
         while 1:
+            if context is None:
+                logger.info("ZeroMQ context is None, so create.")
+                context = create_context()
+                masspinger_sub_socket = create_masspinger_sub_socket(context, masspinger_zeromq_binding, host)
+                parser_sub_socket = create_parser_sub_socket(context, parser_zeromq_binding)
+                poller = create_poller([masspinger_sub_socket, parser_sub_socket])
+                poll_interval = 1000
             if host_alive:
                 if ssh_tap_process is None:
                     if (datetime.datetime.utcnow() > next_ssh_tap_runtime):
@@ -249,6 +267,24 @@ def main(masspinger_zeromq_binding,
                 # is dead and further assume the host is alive.
                 logger.debug("Assuming masspinger is dead, and host is alive")
                 host_alive = True
+            if (ssh_tap_process is None) and (len(parser_accumulator) == 0):
+                # ssh_tap is gone so there won't be more results. parser_accumulator is empty so we're
+                # not processing any more results. Hence let's kill the ZeroMQ context; it may be
+                # leaking memory and this is a cover up.
+                logger.debug("No more results, so close ZeroMQ objects.")
+                close_poller(poller, [masspinger_sub_socket, parser_sub_socket])
+                for socket in [masspinger_sub_socket, parser_sub_socket]:
+                    close_socket(socket)
+                close_context(context)
+                context = None
+                masspinger_sub_socket = None
+                parser_sub_socket = None
+                poller = None
+
+                # !!AI need some way to tell the parser to do the same, but for now let's just collapse.
+                #logger.info("!!AI quitting to clean up memory. expect to be re-launched.")
+                #sys.exit(1)
+
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
@@ -298,6 +334,7 @@ def send_old_parser_socket_data(host, parser_name, db, collection, parser_accumu
     if len(data_to_insert) > 0:
         logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
         insert_into_collection(collection, data_to_insert)
+        gc.collect()
     return parser_accumulator
 
 def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, collection, parser_accumulator):
@@ -327,10 +364,10 @@ def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, coll
         data_to_store.pop(key)
     data_to_store["datetime"] = datetime_obj
     if datetime.datetime.utcnow() - five_days > datetime_obj:
-        logger.debug("Log is too old.")
+        #logger.debug("Log is too old.")
         return parser_accumulator
     if datetime.datetime.utcnow() + one_day < datetime_obj:
-        logger.debug("Log is too new.")
+        #logger.debug("Log is too new.")
         return parser_accumulator
     # --------------------------------------------------------
 
@@ -347,6 +384,7 @@ def handle_parser_socket_activity(host, parser_name, parser_sub_socket, db, coll
     if len(data_to_insert) > 0:
         logger.debug("inserting %s rows, some may be dupes." % (len(data_to_insert), ))
         insert_into_collection(collection, data_to_insert)
+        gc.collect()
     # --------------------------------------------------------
 
     if len(parser_accumulator) % 1000 == 0:
