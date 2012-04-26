@@ -1,0 +1,17 @@
+# ----------------------------------------------------------------------------
+#   poller_to_snarl configuration file.
+# ----------------------------------------------------------------------------
+
+event_1:
+    log_type:           ngmg_ms_messages_parser
+    hostname_regex:     (alpheratz|arrakis|jabbah|wolf|zosma)
+    contents_regex:     Assertion.*failed
+    message_title:      Assertion failed
+
+event_2:
+    log_type:           ngmg_messages_parser
+    hostname_regex:     (alpheratz|arrakis|jabbah|wolf|zosma)
+    contents_regex:     vp3craft.*Run script
+    message_title:      Craft operation
+
+# ----------------------------------------------------------------------------
