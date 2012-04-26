@@ -1,1 +1,4 @@
 dep
+
+# Ignore ZeroMQ swap files.
+zmq*.swap
