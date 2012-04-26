@@ -324,7 +324,8 @@ def intel_error_count():
     jobs = []
     for (failure_id, collection) in failure_id_to_collection.items():
         job = gevent.spawn(collection.find_one,
-                           {"failure_id": failure_id})
+                           {"failure_id": failure_id,
+                            "datetime": {"$gt": start_datetime}})
         jobs.append(job)
     gevent.joinall(jobs)
     for ((failure_id, collection), job) in zip(failure_id_to_collection.items(), jobs):
@@ -492,7 +493,8 @@ def ep_error_count():
             example = ""
             if error_id in error_id_to_collection:
                 collection = error_id_to_collection[error_id]
-                example_result = collection.find_one({"error_id": error_id})
+                example_result = collection.find_one({"error_id": error_id,
+                                                      "datetime": {"$gt": start_datetime}})
                 if example_result and "contents" in example_result:
                     contents = example_result["contents"]
                     example = contents.partition("[%s]" % (error_id, ))[-1].strip()
