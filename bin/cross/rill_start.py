@@ -242,7 +242,10 @@ def main(verbose):
                         collection_name = collection_name).strip()
                 if global_config.get_reconcile_log_verbose():
                     command += " --verbose"
-                commands.append((command, host, parser_name, parser_zeromq_bind))
+
+                # !!AI reconcile_log leaks memory like nobody's business, so
+                # don't use for now.
+                #commands.append((command, host, parser_name, parser_zeromq_bind))
                 # ------------------------------------------------------------
 
                 ssh_tap_port += 5
