@@ -14,6 +14,7 @@ import sys
 import database
 import datetime
 import pdb
+import time
 
 # ----------------------------------------------------------------------------
 #   Constants.
@@ -21,9 +22,11 @@ import pdb
 one_day = datetime.timedelta(days=1)
 five_days = datetime.timedelta(days=5)
 one_week = datetime.timedelta(days=7)
+ten_days = datetime.timedelta(days=10)
 two_weeks = datetime.timedelta(days=14)
 one_minute = datetime.timedelta(minutes=1)
 remove_block_size = 150
+maximum_time_per_collection = 10 * 60 # 10 minutes
 LOG_FILENAME = r"/var/log/age_database.log"
 # ----------------------------------------------------------------------------
 
@@ -60,9 +63,6 @@ def main():
     logger.debug("entry.")
 
     database_names = ["logs", "pings", "mv_trees"]
-    oldest_date = datetime.datetime.utcnow() - five_days
-    newest_date = datetime.datetime.utcnow() + one_day
-
     for database_name in database_names:
         logger.debug("database_name: %s" % (database_name, ))
         top_db = database.Database(database_name = database_name)
@@ -76,7 +76,10 @@ def main():
             datetime_query_string = "datetime"
         for collection_name in collection_names:
             logger.debug("collection_name: %s" % (collection_name, ))
-            while True:
+            start_time = time.time()
+            oldest_date = datetime.datetime.utcnow() - ten_days
+            newest_date = datetime.datetime.utcnow() + one_day
+            while (time.time() - start_time) <= maximum_time_per_collection:
                 collection = write_database[collection_name]
                 cursor = collection.find({"$or": [{datetime_query_string: {'$lt': oldest_date}},
                                                   {datetime_query_string: {'$gt': newest_date}}]},
