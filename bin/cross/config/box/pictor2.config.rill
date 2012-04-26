@@ -1,0 +1,18 @@
+# ----------------------------------------------------------------------------
+#   Box configuration file.
+# ----------------------------------------------------------------------------
+
+production:             yes
+
+friendly name:          pictor2
+dns hostname:           pictor2
+username:               root
+password:               "!bootstrap"
+type:                   NGMG ShM
+log files:
+    -   name:           messages
+        type:           messages
+        full path:      /var/log/messages
+
+# ----------------------------------------------------------------------------
+        
