@@ -83,9 +83,19 @@ def setup_database(collection_name):
     collection = db.get_collection(collection_name)
     collection.ensure_index("contents_hash",
                             unique=True,
-                            drop_dups=True)
-    #for field in fields_to_index:
-    #    db.create_index(collection_name, field)
+                            drop_dups=True,
+                            background=True)
+    collection.ensure_index([("datetime", -1)],
+                             background=True)
+    fields_to_index = [ \
+                       "keywords",
+                       "failure_type",
+                       "failure_id",
+                       "error_level",
+                       "error_id",
+                      ]
+    for field in fields_to_index:
+        collection.ensure_index(field, background=True)
     return collection
 
 required_fields = ["contents", "year", "month", "day", "hour", "minute", "second"]
