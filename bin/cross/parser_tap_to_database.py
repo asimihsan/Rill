@@ -95,7 +95,11 @@ def setup_database(collection_name):
                        "error_id",
                       ]
     for field in fields_to_index:
-        collection.ensure_index(field, background=True)
+        try:
+            collection.ensure_index(field, background=True)
+        except pymongo.errors.OperationFailure:
+            logger.exception("Exception when requesting index build. Not a disaster.")
+            continue
     return collection
 
 required_fields = ["contents", "year", "month", "day", "hour", "minute", "second"]
