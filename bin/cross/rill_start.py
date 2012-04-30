@@ -179,7 +179,7 @@ def main(verbose):
                 # ------------------------------------------------------------
                 masspinger_zeromq_bind = "tcp://127.0.0.1:%s" % (masspinger_port, )
                 ssh_tap_zeromq_bind = "tcp://127.0.0.1:%s" % (ssh_tap_port, )
-                parser_zeromq_bind = "tcp://127.0.0.1:%s" % (parser_port, )
+                parser_zeromq_bind = "tcp://0.0.0.0:%s" % (parser_port, )
                 parser_name = parser_config.get_parser_name()
                 results_zeromq_bind = "tcp://127.0.0.1:%s" % (results_port, )
                 host = box_config.get_dns_hostname()
@@ -216,7 +216,7 @@ def main(verbose):
                 reconcile_log_executable = python_executable + ' ' + reconcile_log_filepath
                 masspinger_zeromq_bind = "tcp://127.0.0.1:%s" % (masspinger_port, )
                 ssh_tap_zeromq_bind = "tcp://127.0.0.1:%s" % (ssh_tap_port + 1, )
-                parser_zeromq_bind = "tcp://127.0.0.1:%s" % (parser_port + 1, )
+                parser_zeromq_bind = "tcp://0.0.0.0:%s" % (parser_port + 1, )
                 parser_name = parser_config.get_parser_name()
                 host = box_config.get_dns_hostname()
 
