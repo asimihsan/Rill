@@ -12,7 +12,7 @@
 <p id="{{ collection_name }}">
     <ul class="unstyled mono">
         {% for line in collection_lines %}
-        <li>{{ line["contents"] }}</li>
+        <li><pre>{{ line["contents"] }}</pre></li>
         {% endfor %}
     </ul>
 </p>
