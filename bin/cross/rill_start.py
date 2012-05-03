@@ -184,7 +184,7 @@ def main(verbose):
                 results_zeromq_bind = "tcp://127.0.0.1:%s" % (results_port, )
                 host = box_config.get_dns_hostname()
                 tail_prefix = box_config.get_tail_command()
-                command = "%s '%s'" % (tail_prefix, log_file.get_full_path(), )
+                command = "%s %s" % (tail_prefix, log_file.get_full_path(), )
                 username = box_config.get_username()
                 password = box_config.get_password()
                 command = robust_ssh_tap_template.substitute( \
