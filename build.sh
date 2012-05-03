@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 
-cd ~/ai/Rill/ssh_tap/build/linux
+CWD=`pwd`
+if [ ! -d "ssh_tap" ] || [ ! -d "masspinger" ] || [ ! -d "bin" ]; then
+    echo "Make sure you execute from root of Rill."
+    exit 1
+fi
+if [ ! -d "bin/linux" ]; then
+    mkdir -p "bin/linux"
+fi
+cd "${CWD}"/ssh_tap/build/linux
 ./make.sh
-cd ~/ai/Rill/masspinger/build/linux
+cd "${CWD}"/masspinger/build/linux
 ./make.sh
-cd ~/ai/Rill/
+cd "${CWD}"
 
