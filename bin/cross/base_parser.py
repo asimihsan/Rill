@@ -113,18 +113,17 @@ def split_contents_and_return_excess(contents):
 def get_log_data_and_excess_lines(full_lines, log_datum_class):
     """ Given a list of strings corresponding to full lines from log output
     return a two-element tuple (elem1, elem2).
-    - elem1: a list of zero or more LogDatum objects that correspond to the
+    - elem1: a list of zero or more dictionaries that correspond to the
     contents of the logs.
     - elem2: a list of lines that constitute a partial log datum.
 
     We will silently drop input that doesn't meet the spec of a log block."""
 
     logger = logging.getLogger("%s.get_log_data_and_excess_lines" % (APP_NAME, ))
-    return_value = []
-    for line in full_lines:
-        log_datum = log_datum_class(line)
-        return_value.append(log_datum)
-    return (return_value, [])
+    log_datum_object = log_datum_class(full_lines)
+    excess_lines = log_datum_object.excess_lines
+    log_data = log_datum_object.dict_representations
+    return (log_data, excess_lines)
 
 required_fields = ["contents"]
 def validate_command(command):
@@ -198,17 +197,13 @@ def main(app_name, log_datum_class, fields_to_index):
             # We now have lots of full lines and some trailing excess. Since a
             # log datum may consist of more than one full line we perform a
             # similar operation to above. We pass all the full lines to a
-            # function which will generate LogDatum object and return
-            # "trailing excess" full lines.
+            # function which will generate a list of dictionaries and
+            # excess lines, as ([dicts], excess).
             # ----------------------------------------------------------------
             (log_data, full_lines) = get_log_data_and_excess_lines(full_lines, log_datum_class)
             for log_datum in log_data:
                 logger.debug("publishing:\n%r" % (log_datum, ))
-                datum_dict = log_datum.get_dict_representation()
-                if datum_dict is None:
-                    logger.warning("log_datum not valid, skip.")
-                    continue
-                publish_socket.send(json.dumps(datum_dict))
+                publish_socket.send(json.dumps(log_datum))
             # ----------------------------------------------------------------
     except KeyboardInterrupt:
         logger.debug("CTRL-C")

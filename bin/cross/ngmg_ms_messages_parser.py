@@ -36,6 +36,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 import base_parser
+from ngmg_base_log_datum import NgmgBaseLogDatum
 
 # ----------------------------------------------------------------------------
 #   Signal handling
@@ -54,10 +55,7 @@ signal.signal(signal.SIGTERM, hard_handler)
 # Mar  7 19:38:33 alpheratz1 19:38:33.114 MS SI[20765]: [ID 452160 local1.info] Assertion (handled) failed: 'term_cb->pg.old_dsp_channel != TPC_TC_DSP_CHANNEL_UNASSIGNED', file ../../../msw/code/tpc/tpcpgc.c, line 3529.  Total handled asserts: 128
 # Mar  6 15:50:17 subra2 MS craft: 06-Mar-2012, 15:50:17 UTC.  Craft user stopping the Integrated Softswitch
 
-class NgmgMsMessagesParserLogDatum(object):
-    def __init__(self, string_input):
-        self.string_input = string_input
-
+class NgmgMsMessagesParserLogDatum(NgmgBaseLogDatum):
     # ------------------------------------------------------------------------
     #   Format of the datetime at the start of the line.
     # ------------------------------------------------------------------------
@@ -78,7 +76,10 @@ class NgmgMsMessagesParserLogDatum(object):
     RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8, re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
-    def get_dict_representation(self):
+    def __init__(self, lines):
+        return super(NgmgMsMessagesParserLogDatum, self).__init__(lines)
+
+    def get_dict_representations(self):
         """ Given a block of a full log event return a dict with the following
         required keys:
         -   year: integer
@@ -108,36 +109,44 @@ class NgmgMsMessagesParserLogDatum(object):
 
         Return None if the input can't be parsed.
         """
+        if self._dict_representations is not None:
+            return self._dict_representations
 
-        if len(self.string_input.splitlines()) != 1:
-            return None
-        m = self.RE_LINE.search(self.string_input)
-        if not m:
-            return None
-        year = str(datetime.datetime.now().year)
-        month1 = m.group(1)
-        day1 = m.group(2)
-        time1 = m.group(3)
-        hostname = m.group(4)
-        contents = m.group(5)
+        rv = []
+        for line in self.lines:
+            if len(line.splitlines()) != 1:
+                continue
+            m = self.RE_LINE.search(line)
+            if not m:
+                continue
+            year = str(datetime.datetime.now().year)
+            month1 = m.group(1)
+            day1 = m.group(2)
+            time1 = m.group(3)
+            hostname = m.group(4)
+            contents = m.group(5)
 
-        full_datetime = " ".join([year, month1, day1, time1])
-        try:
-            datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
-        except ValueError:
-            return None
-        return_value = {}
-        return_value["year"] = str(datetime_obj.year)
-        return_value["month"] = str(datetime_obj.month)
-        return_value["day"] = str(datetime_obj.day)
-        return_value["hour"] = str(datetime_obj.hour)
-        return_value["minute"] = str(datetime_obj.minute)
-        return_value["second"] = str(datetime_obj.second)
-        return_value["contents"] = self.string_input
-        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
-        return_value["keywords"] = self.tokenize(return_value["contents"])
-        return_value = self.handle_ms_failures(return_value)
-        return return_value
+            full_datetime = " ".join([year, month1, day1, time1])
+            try:
+                datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
+            except ValueError:
+                return None
+            return_value = {}
+            return_value["year"] = str(datetime_obj.year)
+            return_value["month"] = str(datetime_obj.month)
+            return_value["day"] = str(datetime_obj.day)
+            return_value["hour"] = str(datetime_obj.hour)
+            return_value["minute"] = str(datetime_obj.minute)
+            return_value["second"] = str(datetime_obj.second)
+            return_value["contents"] = line
+            return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
+            return_value["keywords"] = self.tokenize(return_value["contents"])
+            return_value = self.handle_ms_failures(return_value)
+            rv.append(return_value)
+
+        self._dict_representations = rv
+        self._excess_lines = []
+        return self._dict_representations
 
     def handle_ms_failures(self, current_return_value):
         if "contents" not in current_return_value:
@@ -172,7 +181,7 @@ class NgmgMsMessagesParserLogDatum(object):
 
         I'm going to cheat and use Whoosh."""
 
-        m = self.RE_LINE.search(self.string_input)
+        m = self.RE_LINE.search(input)
         if not m:
             return []
         contents = m.group(5)

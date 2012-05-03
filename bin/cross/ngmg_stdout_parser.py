@@ -53,7 +53,7 @@ signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
 # Feb 28 23:30:51 jabbah getpstack_cont.sh: pstack complete, sending SIGCONT to process  (24289)
-class NgmgMessagesParserLogDatum(NgmgBaseLogDatum):
+class NgmgStdoutParserLogDatum(NgmgBaseLogDatum):
     # ------------------------------------------------------------------------
     #   Format of the datetime at the start of the line.
     # ------------------------------------------------------------------------
@@ -75,7 +75,7 @@ class NgmgMessagesParserLogDatum(NgmgBaseLogDatum):
     # ------------------------------------------------------------------------
 
     def __init__(self, lines):
-        return super(NgmgMessagesParserLogDatum, self).__init__(lines)
+        return super(NgmgStdoutParserLogDatum, self).__init__(lines)
 
     def get_dict_representations(self):
         """ Given a block of a full log event return a dict with the following
@@ -107,42 +107,35 @@ class NgmgMessagesParserLogDatum(NgmgBaseLogDatum):
 
         Return None if the input can't be parsed.
         """
-        if self._dict_representations is not None:
-            return self._dict_representations
 
-        rv = []
-        for line in self.lines:
-            if len(line.splitlines()) != 1:
-                continue
-            m = self.RE_LINE.search(line)
-            if not m:
-                continue
-            year = str(datetime.datetime.now().year)
-            month1 = m.group(1)
-            day1 = m.group(2)
-            time1 = m.group(3)
-            hostname = m.group(4)
-            contents = m.group(5)
+        if len(self.string_input.splitlines()) != 1:
+            return None
+        m = self.RE_LINE.search(self.string_input)
+        if not m:
+            return None
+        year = str(datetime.datetime.now().year)
+        month1 = m.group(1)
+        day1 = m.group(2)
+        time1 = m.group(3)
+        hostname = m.group(4)
+        contents = m.group(5)
 
-            full_datetime = " ".join([year, month1, day1, time1])
-            try:
-                datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
-            except ValueError:
-                continue
-            return_value = {}
-            return_value["year"] = str(datetime_obj.year)
-            return_value["month"] = str(datetime_obj.month)
-            return_value["day"] = str(datetime_obj.day)
-            return_value["hour"] = str(datetime_obj.hour)
-            return_value["minute"] = str(datetime_obj.minute)
-            return_value["second"] = str(datetime_obj.second)
-            return_value["contents"] = line
-            return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
-            return_value["keywords"] = self.tokenize(return_value["contents"])
-            rv.append(return_value)
-        self._dict_representations = rv
-        self._excess_lines = []
-        return self._dict_representations
+        full_datetime = " ".join([year, month1, day1, time1])
+        try:
+            datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
+        except ValueError:
+            return None
+        return_value = {}
+        return_value["year"] = str(datetime_obj.year)
+        return_value["month"] = str(datetime_obj.month)
+        return_value["day"] = str(datetime_obj.day)
+        return_value["hour"] = str(datetime_obj.hour)
+        return_value["minute"] = str(datetime_obj.minute)
+        return_value["second"] = str(datetime_obj.second)
+        return_value["contents"] = line
+        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
+        return_value["keywords"] = self.tokenize(return_value["contents"])
+        return return_value
 
     analyzer = StandardAnalyzer()
     def tokenize(self, input):
@@ -174,7 +167,7 @@ if __name__ == "__main__":
     logger.debug("starting")
     try:
         fields_to_index = ["datetime", "keywords", "contents_hash"]
-        base_parser.main(APP_NAME, NgmgMessagesParserLogDatum, fields_to_index)
+        base_parser.main(APP_NAME, NgmgStdoutParserLogDatum, fields_to_index)
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
     finally:
