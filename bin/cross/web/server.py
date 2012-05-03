@@ -532,7 +532,7 @@ def full_text_search_results():
     #   Validate inputs.
     # ------------------------------------------------------------------------
 
-    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages"])
+    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages", "ngmg_stdout"])
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week", "one_month"])
 
     if len(bottle.request.forms.items()) == 0:
@@ -628,7 +628,7 @@ def full_text_search_results():
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
-    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages"])
+    valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages", "ngmg_stdout"])
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week", "one_month"])
 
     include_search_string = str(bottle.request.forms.get("include_search_string"))

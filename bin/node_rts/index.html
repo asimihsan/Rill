@@ -436,11 +436,12 @@
                         if (is_connected)
                         {
                             var text_to_insert = "";
+                            var contents = data.contents.replace(/\n/g, '<br />');
                             text_to_insert += "<li style=\"background: ";
                             text_to_insert += data.color;
                             text_to_insert += "; ";
-                            var is_included = current_include_regexp_filter.test(data.contents);
-                            var is_excluded = current_exclude_regexp_filter.test(data.contents);
+                            var is_included = current_include_regexp_filter.test(contents);
+                            var is_excluded = current_exclude_regexp_filter.test(contents);
                             if ((is_excluded == true) ||
                                 (is_excluded == false) && (is_included == false))
                             {
@@ -451,7 +452,7 @@
                                 text_to_insert += "display: block;";
                             }
                             text_to_insert += "\">";
-                            text_to_insert +=  data.contents;
+                            text_to_insert +=  contents;
                             text_to_insert += "</li>";
                             pending_log_items.unshift(text_to_insert);
                             if (pending_log_item_appender_timer_enabled == false) {
