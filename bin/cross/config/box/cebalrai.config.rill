@@ -19,5 +19,8 @@ log files:
     -   name:           ms_messages
         type:           ms_messages
         full path:      /var/opt/MetaSwitch/ms_messages
+    -   name:           stdout
+        type:           stdout
+        full path:      \\\$METASWITCH_VAR_PATH/stdout
 # ----------------------------------------------------------------------------
         
