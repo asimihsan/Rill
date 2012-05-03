@@ -25,7 +25,7 @@ from whoosh.analysis import LowercaseFilter
 from whoosh.analysis import RegexTokenizer
 from whoosh.analysis import StopFilter
 
-APP_NAME = "ngmg_messages_parser"
+APP_NAME = "ngmg_stdout_parser"
 import logging
 logger = logging.getLogger(APP_NAME)
 logger.setLevel(logging.INFO)
@@ -52,90 +52,104 @@ signal.signal(signal.SIGINT, soft_handler)
 signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
-# Feb 28 23:30:51 jabbah getpstack_cont.sh: pstack complete, sending SIGCONT to process  (24289)
 class NgmgStdoutParserLogDatum(NgmgBaseLogDatum):
+    """ Block starts as:
+
+    17-Apr-2012, 10:32:37.037 UTC
+
+    """
+
     # ------------------------------------------------------------------------
     #   Format of the datetime at the start of the line.
     # ------------------------------------------------------------------------
-    DATETIME_FORMAT = "%Y %b %d %H:%M:%S"
+    DATETIME_FORMAT = "%d-%b-%Y %H:%M:%S"
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
-    #   Regular expression to get elements out of the line.
+    #   Regular expression to get elements out of the list of lines.
     # ------------------------------------------------------------------------
-    re1='((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?))' # Month 1
-    re2='.*?' # Non-greedy match on filler
-    re3='(\d+)' # Day number
-    re4='.*?' # Non-greedy filler
-    re5='((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9])):(?:[0-5][0-9])(?::[0-5][0-9])?(?:\\s?(?:am|AM|pm|PM))?)'    # HourMinuteSec 1
-    re6='.*?' # Non-greedy match on filler
-    re7='((?:[a-z][a-z]+))' # Word 1a
-    re8=' (.*)' # the rest
-    RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8, re.IGNORECASE | re.DOTALL)
+    re1='((?:(?:[0-2]?\\d{1})|(?:[3][01]{1}))[-:\\/.](?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[-:\\/.](?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3})))(?![\\d])'  # DDMMMYYYY 1
+    re2='(,)'   # Any Single Character 1
+    re3='( )'   # White Space 1
+    re4='((?:(?:[0-1][0-9])|(?:[2][0-3])|(?:[0-9])):(?:[0-5][0-9])(?::[0-5][0-9])?(?:\\s?(?:am|AM|pm|PM))?)'    # HourMinuteSec 1
+    RE_BLOCK_START = re.compile(re1+re2+re3+re4, re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
     def __init__(self, lines):
         return super(NgmgStdoutParserLogDatum, self).__init__(lines)
 
     def get_dict_representations(self):
-        """ Given a block of a full log event return a dict with the following
-        required keys:
-        -   year: integer
-        -   month: integer
-        -   day: integer
-        -   hour: integer
-        -   minute: integer
-        -   second: integer
-        -   contents: full block from the log.
+        if self._dict_representations is not None:
+            return self._dict_representations
 
-        and the following optional keys:
-        -   microsecond: integer
+        rv = []
+        current_block = []
+        old_current_block = []
+        is_in_block = False
+        for i, line in enumerate(self.lines):
+            logger.debug("i: %s, line: %s" % (i, line))
+            # ----------------------------------------------------------------
+            #   Judging by whether there's a datetime in the line adjust
+            #   our behaviour.
+            #   -   is_in_block: are we currently processing a block?
+            # ----------------------------------------------------------------
+            if line.startswith("==="):
+                # special. this is a line we can skip.
+                continue
+            m = self.RE_BLOCK_START.search(line)
+            logger.debug("before. m: %s, is_in_block: %s, current_block: %s, old_current_block: %s" % (m, is_in_block, pprint.pformat(current_block), pprint.pformat(old_current_block)))
+            if not m and not is_in_block:
+                logger.debug("no datetime, not in block, so skip")
+                continue
+            if not m and is_in_block:
+                logger.debug("no datetime, but in a block. append line to current_block and continue")
+                current_block.append(line)
+                continue
+            if m and not is_in_block:
+                logger.debug("datetime, but not in a block. odd! start new current_block")
+                is_in_block = True
+                current_block = [line]
+                continue
+            elif m and is_in_block:
+                logger.debug("datetime, and in a block. current_bock is finished.")
+                old_current_block = current_block[:]
+                current_block = [line]
+            logger.debug("after. m: %s, is_in_block: %s, current_block: %s, old_current_block: %s" % (m, is_in_block, pprint.pformat(current_block), pprint.pformat(old_current_block)))
+            # ----------------------------------------------------------------
 
-        Add whatever other keys you like for subscribers to this parser. The
-        most relevent is "_keywords", which we prepare for MongoDB consumers
-        so that we get to decide how they tokenize the string in preparation
-        for full-text searching.
+            # ----------------------------------------------------------------
+            #   If current_block_is_finished we need to parse the contents
+            #   of current_block and append it to rv.
+            # ----------------------------------------------------------------
+            # The first line must match RE_BLOCK_START
+            m = self.RE_BLOCK_START.search(old_current_block[0])
+            assert(m)
+            ddmmmyyyy1 = m.group(1)
+            time1 = m.group(4)
+            full_datetime = "%s %s" % (ddmmmyyyy1, time1)
+            try:
+                datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
+            except ValueError:
+                logger.exception("failed to parse datetime in first line: %s" % (old_current_block[0], ))
+                continue
+            return_value = {}
+            return_value["year"] = str(datetime_obj.year)
+            return_value["month"] = str(datetime_obj.month)
+            return_value["day"] = str(datetime_obj.day)
+            return_value["hour"] = str(datetime_obj.hour)
+            return_value["minute"] = str(datetime_obj.minute)
+            return_value["second"] = str(datetime_obj.second)
+            return_value["contents"] = '\n'.join(old_current_block)
+            return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
+            return_value["keywords"] = self.tokenize(return_value["contents"])
+            # ----------------------------------------------------------------
 
-        Example lines:
+            rv.append(return_value)
+        self._dict_representations = rv
+        self._excess_lines = current_block
 
-        2012-Feb-25 19:36:44 testvm.2 green a a a a a a a a a a a a a
-        2012-Feb-25 19:36:43 testvm.2 a a a a a a a a a a a a a i am a lion watch me roar
-
-        - If the log outputs data in single lines contents will always be a single line.
-        - If the log outputs data to multiple lines for a given datetime contents may
-        be a line-delimited string.
-
-        Return None if the input can't be parsed.
-        """
-
-        if len(self.string_input.splitlines()) != 1:
-            return None
-        m = self.RE_LINE.search(self.string_input)
-        if not m:
-            return None
-        year = str(datetime.datetime.now().year)
-        month1 = m.group(1)
-        day1 = m.group(2)
-        time1 = m.group(3)
-        hostname = m.group(4)
-        contents = m.group(5)
-
-        full_datetime = " ".join([year, month1, day1, time1])
-        try:
-            datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
-        except ValueError:
-            return None
-        return_value = {}
-        return_value["year"] = str(datetime_obj.year)
-        return_value["month"] = str(datetime_obj.month)
-        return_value["day"] = str(datetime_obj.day)
-        return_value["hour"] = str(datetime_obj.hour)
-        return_value["minute"] = str(datetime_obj.minute)
-        return_value["second"] = str(datetime_obj.second)
-        return_value["contents"] = line
-        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
-        return_value["keywords"] = self.tokenize(return_value["contents"])
-        return return_value
+        logger.debug("returning: \n%s" % (pprint.pformat(self._dict_representations), ))
+        return self._dict_representations
 
     analyzer = StandardAnalyzer()
     def tokenize(self, input):
@@ -144,12 +158,8 @@ class NgmgStdoutParserLogDatum(NgmgBaseLogDatum):
 
         I'm going to cheat and use Whoosh."""
 
-        m = self.RE_LINE.search(input)
-        if not m:
-            return []
-        contents = m.group(5)
         tokens = []
-        for elem in self.analyzer(contents):
+        for elem in self.analyzer(input):
             if hasattr(elem, "pos"):
                 tokens.append((elem.text, elem.pos))
             else:
