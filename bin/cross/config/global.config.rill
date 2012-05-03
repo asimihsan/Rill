@@ -7,7 +7,7 @@ service_registry_verbose:       off
 masspinger_verbose:             off
 robust_ssh_tap_verbose:         off
 parser_verbose:                 off
-reconcile_log_verbose:          on
+reconcile_log_verbose:          off
 
 # yes or no
 production:                     yes
