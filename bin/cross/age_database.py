@@ -92,6 +92,9 @@ def main():
                 ids = [elem['_id'] for elem in cursor]
                 remove_rc = collection.remove({'_id': {'$in': ids}}, safe = True)
                 logger.debug("remove_rc: %s" % (remove_rc, ))
+                if remove_rc["n"] == 0:
+                    logger.error("Failed to delete any rows! Skip collection for now.")
+                    break
 
 if __name__ == "__main__":
     try:
