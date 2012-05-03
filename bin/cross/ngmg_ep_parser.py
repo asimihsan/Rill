@@ -36,6 +36,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 import base_parser
+from ngmg_base_log_datum import NgmgBaseLogDatum
 
 # ----------------------------------------------------------------------------
 #   Signal handling
@@ -51,10 +52,7 @@ signal.signal(signal.SIGINT, soft_handler)
 signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
-class NgmgEpParserLogDatum(object):
-    def __init__(self, string_input):
-        self.string_input = string_input
-
+class NgmgEpParserLogDatum(NgmgBaseLogDatum):
     # ------------------------------------------------------------------------
     #   Format of the datetime at the start of the line.
     # ------------------------------------------------------------------------
@@ -82,7 +80,10 @@ class NgmgEpParserLogDatum(object):
     RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8+re9+re10+re11+re12+re13+re14, re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
-    def get_dict_representation(self):
+    def __init__(self, lines):
+        return super(NgmgEpParserLogDatum, self).__init__(lines)
+
+    def get_dict_representations(self):
         """ Given a block of a full log event return a dict with the following
         required keys:
         -   year: integer
@@ -112,53 +113,61 @@ class NgmgEpParserLogDatum(object):
 
         Return None if the input can't be parsed.
         """
+        if self._dict_representations is not None:
+            return self._dict_representations
 
-        if len(self.string_input.splitlines()) != 1:
-            return None
-        m = self.RE_LINE.search(self.string_input)
-        if not m:
-            return None
-        year = str(datetime.datetime.now().year)
-        month1 = m.group(1)
-        day1 = m.group(2)
-        time1 = m.group(3)
-        log_id = m.group(4)
-        logger_id_with_stars = m.group(5)
-        component_id = m.group(6)
-        contents = m.group(7)
+        rv = []
+        for line in self.lines:
+            if len(line.splitlines()) != 1:
+                continue
+            m = self.RE_LINE.search(line)
+            if not m:
+                continue
+            year = str(datetime.datetime.now().year)
+            month1 = m.group(1)
+            day1 = m.group(2)
+            time1 = m.group(3)
+            log_id = m.group(4)
+            logger_id_with_stars = m.group(5)
+            component_id = m.group(6)
+            contents = m.group(7)
 
-        full_datetime = " ".join([year, month1, day1, time1])
-        try:
-            datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
-        except ValueError:
-            return None
-        return_value = {}
-        return_value["year"] = str(datetime_obj.year)
-        return_value["month"] = str(datetime_obj.month)
-        return_value["day"] = str(datetime_obj.day)
-        return_value["hour"] = str(datetime_obj.hour)
-        return_value["minute"] = str(datetime_obj.minute)
-        return_value["second"] = str(datetime_obj.second)
-        return_value["contents"] = self.string_input
-        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
-        return_value["keywords"] = self.tokenize(return_value["contents"])
-        return_value["log_id"] = log_id
-        return_value["component_id"] = component_id
+            full_datetime = " ".join([year, month1, day1, time1])
+            try:
+                datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
+            except ValueError:
+                return None
+            return_value = {}
+            return_value["year"] = str(datetime_obj.year)
+            return_value["month"] = str(datetime_obj.month)
+            return_value["day"] = str(datetime_obj.day)
+            return_value["hour"] = str(datetime_obj.hour)
+            return_value["minute"] = str(datetime_obj.minute)
+            return_value["second"] = str(datetime_obj.second)
+            return_value["contents"] = line
+            return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
+            return_value["keywords"] = self.tokenize(return_value["contents"])
+            return_value["log_id"] = log_id
+            return_value["component_id"] = component_id
 
-        # For ep.log two stars is error, one start is warning, when prepended to component.
-        if logger_id_with_stars.startswith("**"):
-            error_level = "error"
-        elif logger_id_with_stars.startswith("*"):
-            error_level = "warning"
-        if logger_id_with_stars.startswith("*"):
-            possible_error_id_match = re.search("\[(.*?)\]", contents)
-            if possible_error_id_match:
-                error_id = possible_error_id_match.groups()[0]
-                if ".cpp:" in error_id:
-                    return_value["error_level"] = error_level
-                    return_value["error_id"] = error_id
+            # For ep.log two stars is error, one start is warning, when prepended to component.
+            if logger_id_with_stars.startswith("**"):
+                error_level = "error"
+            elif logger_id_with_stars.startswith("*"):
+                error_level = "warning"
+            if logger_id_with_stars.startswith("*"):
+                possible_error_id_match = re.search("\[(.*?)\]", contents)
+                if possible_error_id_match:
+                    error_id = possible_error_id_match.groups()[0]
+                    if ".cpp:" in error_id:
+                        return_value["error_level"] = error_level
+                        return_value["error_id"] = error_id
 
-        return return_value
+            rv.append(return_value)
+
+        self._dict_representations = rv
+        self._excess_lines = []
+        return self._dict_representations
 
     analyzer = StandardAnalyzer()
     def tokenize(self, input):
@@ -167,7 +176,7 @@ class NgmgEpParserLogDatum(object):
 
         I'm going to cheat and use Whoosh."""
 
-        m = self.RE_LINE.search(self.string_input)
+        m = self.RE_LINE.search(input)
         if not m:
             return []
         contents = m.group(7)

@@ -36,6 +36,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 import base_parser
+from ngmg_base_log_datum import NgmgBaseLogDatum
 
 # ----------------------------------------------------------------------------
 #   Signal handling
@@ -52,10 +53,7 @@ signal.signal(signal.SIGTERM, hard_handler)
 # ----------------------------------------------------------------------------
 
 # Feb 26 23:41:29 emer_mf106-wrlinux daemon.notice SYSSTAT(MSMonitor30)[3488]: report status: success: STATUS_OK @MSMonitor30, code=253, severity=0
-class NgmgShmMessagesParserLogDatum(object):
-    def __init__(self, string_input):
-        self.string_input = string_input
-
+class NgmgShmMessagesParserLogDatum(NgmgBaseLogDatum):
     # ------------------------------------------------------------------------
     #   Format of the datetime at the start of the line.
     # ------------------------------------------------------------------------
@@ -76,7 +74,10 @@ class NgmgShmMessagesParserLogDatum(object):
     RE_LINE = re.compile(re1+re2+re3+re4+re5+re6+re7+re8, re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
-    def get_dict_representation(self):
+    def __init__(self, lines):
+        return super(NgmgShmMessagesParserLogDatum, self).__init__(lines)
+
+    def get_dict_representations(self):
         """ Given a block of a full log event return a dict with the following
         required keys:
         -   year: integer
@@ -107,37 +108,46 @@ class NgmgShmMessagesParserLogDatum(object):
         Return None if the input can't be parsed.
         """
 
-        if len(self.string_input.splitlines()) != 1:
-            return None
-        m = self.RE_LINE.search(self.string_input)
-        if not m:
-            return None
-        year = str(datetime.datetime.now().year)
-        month1 = m.group(1)
-        day1 = m.group(2)
-        time1 = m.group(3)
-        fqdn = m.group(4)
-        contents = m.group(5)
+        if self._dict_representations is not None:
+            return self._dict_representations
 
-        full_datetime = " ".join([year, month1, day1, time1])
-        try:
-            datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
-        except ValueError:
-            return None
-        return_value = {}
-        return_value["year"] = str(datetime_obj.year)
-        return_value["month"] = str(datetime_obj.month)
-        return_value["day"] = str(datetime_obj.day)
-        return_value["hour"] = str(datetime_obj.hour)
-        return_value["minute"] = str(datetime_obj.minute)
-        return_value["second"] = str(datetime_obj.second)
-        return_value["contents"] = self.string_input
-        return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
-        return_value["keywords"] = self.tokenize(return_value["contents"])
-        if "Assertion failed at" in return_value["contents"]:
-            elems = return_value["contents"].partition("Assertion failed at")
-            return_value["failure_id"] = elems[-1].strip()
-        return return_value
+        rv = []
+        for line in self.lines:
+            if len(line.splitlines()) != 1:
+                continue
+            m = self.RE_LINE.search(line)
+            if not m:
+                continue
+            year = str(datetime.datetime.now().year)
+            month1 = m.group(1)
+            day1 = m.group(2)
+            time1 = m.group(3)
+            fqdn = m.group(4)
+            contents = m.group(5)
+
+            full_datetime = " ".join([year, month1, day1, time1])
+            try:
+                datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
+            except ValueError:
+                return None
+            return_value = {}
+            return_value["year"] = str(datetime_obj.year)
+            return_value["month"] = str(datetime_obj.month)
+            return_value["day"] = str(datetime_obj.day)
+            return_value["hour"] = str(datetime_obj.hour)
+            return_value["minute"] = str(datetime_obj.minute)
+            return_value["second"] = str(datetime_obj.second)
+            return_value["contents"] = line
+            return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
+            return_value["keywords"] = self.tokenize(return_value["contents"])
+            if "Assertion failed at" in return_value["contents"]:
+                elems = return_value["contents"].partition("Assertion failed at")
+                return_value["failure_id"] = elems[-1].strip()
+            rv.append(return_value)
+
+        self._dict_representations = rv
+        self._excess_lines = []
+        return self._dict_representations
 
     analyzer = StandardAnalyzer()
     def tokenize(self, input):
@@ -146,7 +156,7 @@ class NgmgShmMessagesParserLogDatum(object):
 
         I'm going to cheat and use Whoosh."""
 
-        m = self.RE_LINE.search(self.string_input)
+        m = self.RE_LINE.search(input)
         if not m:
             return []
         contents = m.group(5)
