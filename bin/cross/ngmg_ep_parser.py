@@ -117,9 +117,11 @@ class NgmgEpParserLogDatum(NgmgBaseLogDatum):
             return self._dict_representations
 
         rv = []
+        current_block = []
+        old_current_block = []
+        current_log_id = None
         for line in self.lines:
-            if len(line.splitlines()) != 1:
-                continue
+            logger.debug("line: %s" % (line, ))
             m = self.RE_LINE.search(line)
             if not m:
                 continue
@@ -137,6 +139,27 @@ class NgmgEpParserLogDatum(NgmgBaseLogDatum):
                 datetime_obj = datetime.datetime.strptime(full_datetime, self.DATETIME_FORMAT)
             except ValueError:
                 return None
+
+            if current_log_id is None:
+                current_log_id = log_id
+                current_block.append((line, m, datetime_obj))
+                continue
+            if log_id == current_log_id:
+                current_block.append((line, m, datetime_obj))
+                continue
+            # We have a new log at this point.
+            old_current_block = current_block[:]
+            current_block = [(line, m, datetime_obj)]
+
+            all_lines = (line for (line, m, datetime_obj) in old_current_block)
+            all_contents = '\n'.join(line for line in all_lines)
+            (line, m, datetime_obj) = old_current_block[0]
+
+            log_id = m.group(4)
+            logger_id_with_stars = m.group(5)
+            component_id = m.group(6)
+            contents = m.group(7)
+
             return_value = {}
             return_value["year"] = str(datetime_obj.year)
             return_value["month"] = str(datetime_obj.month)
@@ -144,7 +167,7 @@ class NgmgEpParserLogDatum(NgmgBaseLogDatum):
             return_value["hour"] = str(datetime_obj.hour)
             return_value["minute"] = str(datetime_obj.minute)
             return_value["second"] = str(datetime_obj.second)
-            return_value["contents"] = line
+            return_value["contents"] = all_contents
             return_value["contents_hash"] = base64.b64encode(hashlib.md5(return_value["contents"]).digest())
             return_value["keywords"] = self.tokenize(return_value["contents"])
             return_value["log_id"] = log_id
@@ -166,7 +189,7 @@ class NgmgEpParserLogDatum(NgmgBaseLogDatum):
             rv.append(return_value)
 
         self._dict_representations = rv
-        self._excess_lines = []
+        self._excess_lines = [line for (line, m, datetime_obj) in current_block]
         return self._dict_representations
 
     analyzer = StandardAnalyzer()
