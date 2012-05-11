@@ -11,11 +11,11 @@
 
 {% for (collection, cursor) in collections_and_cursors %}
 {% if cursor.count() != 0 %}
-    <!-- <h3 id="{{ collection.name }}">{{ collection.name }}</h3> -->
+<h3 id="{{ collection.name }}">{{ collection.name }}</h3>
 <p id="{{ collection.name }}">
     <ul class="unstyled mono">
     {% for row in cursor %}
-        <li>{{ row["contents"] }}</li>
+        <li><pre>{{ row["contents"] }}</pre></li>
     {% endfor %}
     </ul>
 </p>
