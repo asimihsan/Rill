@@ -9,6 +9,7 @@
 </ul>
 {% for (collection_name, collection_lines) in log_data %}
 {% if collection_lines.count() > 0 %}
+<h3 id="{{ collection_name }}">{{ collection_name }}</h3>
 <p id="{{ collection_name }}">
     <ul class="unstyled mono">
         {% for line in collection_lines %}

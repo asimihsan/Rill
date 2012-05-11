@@ -393,7 +393,9 @@ def ep_error_instances():
     # ------------------------------------------------------------------------
 
     collections_and_cursors = db.get_ep_error_instances(error_id = error_id_decoded)
-    collections_and_cursors.sort(key=operator.itemgetter(0))
+    cmp_fn = lambda x, y: cmp(x[0].name, y[0].name)
+    collections_and_cursors.sort(cmp=cmp_fn)
+    logger.debug("collections_and_cursors:\n%s" % (pprint.pformat(collections_and_cursors), ))
     template = jinja2_env.get_template('ep_error_instances.html')
     stream = template.stream(error_id = error_id_decoded,
                              collections_and_cursors = collections_and_cursors)
