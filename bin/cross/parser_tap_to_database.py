@@ -19,7 +19,6 @@ import heapq
 import gc
 
 import pymongo
-import pymongo.binary
 import database
 from utilities import retry
 
