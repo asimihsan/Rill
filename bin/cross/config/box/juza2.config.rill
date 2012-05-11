@@ -2,7 +2,7 @@
 #   Box configuration file.
 # ----------------------------------------------------------------------------
 
-production:             yes
+production:             no
 
 friendly name:          juza2
 dns hostname:           juza2-mgmt

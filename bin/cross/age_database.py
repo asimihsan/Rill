@@ -28,6 +28,7 @@ one_minute = datetime.timedelta(minutes=1)
 remove_block_size = 150
 maximum_time_per_collection = 10 * 60 # 10 minutes
 LOG_FILENAME = r"/var/log/age_database.log"
+INTERVAL_SIZE = one_week
 # ----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
@@ -77,7 +78,7 @@ def main():
         for collection_name in collection_names:
             logger.debug("collection_name: %s" % (collection_name, ))
             start_time = time.time()
-            oldest_date = datetime.datetime.utcnow() - ten_days
+            oldest_date = datetime.datetime.utcnow() - INTERVAL_SIZE
             newest_date = datetime.datetime.utcnow() + one_day
             while (time.time() - start_time) <= maximum_time_per_collection:
                 collection = write_database[collection_name]
