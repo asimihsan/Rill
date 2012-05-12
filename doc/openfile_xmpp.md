@@ -19,5 +19,9 @@ This document goes over my experience attempting to set up the Openfire XMPP ser
 - Add a user via the admin panel, log in via a client like [Ignite Spark](http://www.igniterealtime.org/projects/spark/). This should work.
 - At this point you'll notice your user's domain name is "127.0.0.1". This is annoying, and will really upset programming APIs that expect the domain name to be usable over a remote socket. To change this, go to the Openfire admin panel, -> Server -> Server Manager -> Server Properties, set `xmpp.domain` to `domain.fqdn`.
 - Use a library like [Python Wokkel](http://wokkel.ik.nu/documentation/current/client.html) and explicitly confirm that you can log in as `username@domain.fqdn`.
+- an API for adding/removing users is available via the "User Service" plugin. Easiest way to install it is via the admin page, Plugins -> Plugin Admin -> Available Plugins. The gotcha is that you need to enable it afterwards in Server -> Server Settings -> User Service. API thereafter is according to README file, e.g.
 
-So far this works for me, pretty exciting.
+`http://example.com:9090/plugins/userService/userservice?type=add&secret=bigsecret&username=kafka&password=drowssap&name=franz&email=franz@kafka.com`
+
+
+
