@@ -2,3 +2,6 @@ dep
 
 # Ignore ZeroMQ swap files.
 zmq*.swap
+
+xmppbots/project/target/
+xmppbots/target/
