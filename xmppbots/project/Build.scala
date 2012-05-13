@@ -26,9 +26,11 @@ object Dependencies {
     val smack = "org.igniterealtime.smack" % "smack" % "3.2.1"
     val smackx = "org.igniterealtime.smack" % "smackx" % "3.2.1"
     val akka_actor = "com.typesafe.akka" % "akka-actor" % akka_version
+    val akka_slf4j = "com.typesafe.akka" % "akka-slf4j" % akka_version
     val http = "net.databinder" %% "dispatch-http" % "0.8.8"
     val json = "net.liftweb" % "lift-json_2.8.0" % "2.4"
     val scalaj_http = "org.scalaj" %% "scalaj-http" % "0.3.1"
+    val logback = "ch.qos.logback" % "logback-classic" % "1.0.3" % "runtime"
 }
 
 object BuildSetup extends Build {
@@ -40,9 +42,11 @@ object BuildSetup extends Build {
     smack,
     smackx,
     akka_actor,
+    akka_slf4j,
     http,
     json,
-    scalaj_http
+    scalaj_http,
+    logback
   )
 
   val res = Seq(
