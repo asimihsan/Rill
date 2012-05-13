@@ -13,8 +13,9 @@ import akka.actor.ActorSystem
 import akka.actor.PoisonPill
 
 import scalaj.http.{Http, HttpOptions}
+import net.liftweb.json.JsonAST.{JArray, JField, JObject, JString}
 import net.liftweb.json.JsonParser
-import java.io.InputStreamReader
+import java.io.{InputStreamReader, StringWriter, PrintWriter}
 
 sealed class XmppBotMessage
 
@@ -24,18 +25,47 @@ case class ServiceRegistryPing(contents: String) extends XmppBotMessage
 case class ServiceRegistryPong(contents: String) extends XmppBotMessage
 
 case class HTTPRequestGETRequest(URI: String) extends XmppBotMessage
-case class HTTPRequestGETResponse() extends XmppBotMessage
+case class HTTPRequestGETResponse(response: JObject) extends XmppBotMessage
 case class HTTPRequestSuicide() extends XmppBotMessage
+
+case class HTTPRequestException(cause: Exception) extends Exception
+object Exceptions {
+    def stackTraceToString(exception: Exception): String = {
+        val sw = new StringWriter
+        exception.printStackTrace(new PrintWriter(sw))
+        sw.toString()
+    }
+}
 
 object HTTPRequestActor {
     def getJSONFromURI(URI: String) = {
-        Http(URI).
-        option(HttpOptions.connTimeout(1000)).
-        option(HttpOptions.readTimeout(5000)) { inputStream =>
-            val parsed = JsonParser.parse(new InputStreamReader(inputStream))
-            parsed
+        try {
+            Http(URI).
+            option(HttpOptions.connTimeout(1000)).
+            option(HttpOptions.readTimeout(5000)) { inputStream =>
+                    val parsed = JsonParser.parse(new InputStreamReader(inputStream)).asInstanceOf[JObject]
+                    parsed
+            }
+        } catch {
+            case e: Exception => throw HTTPRequestException(e)
+        } // try/catch
+    } // def getJSONFromURI
+
+    def get(context: ActorContext,
+            actorPath: String,
+            timeout: Duration = 5 seconds,
+            URI: String,
+            onSuccessCallback: (HTTPRequestGETResponse) => Unit,
+            onExceptionCallback: (Exception) => Unit) = {
+
+            val message = HTTPRequestGETRequest(URI)
+            val future = context.actorFor(actorPath).ask(message)(timeout)
+            future onComplete {
+                case Right(result: HTTPRequestGETResponse) => onSuccessCallback(result) 
+                case Left(exception: Exception) => onExceptionCallback(exception)
+            }
+            future
         }
-    }
 }
 
 case class HTTPRequestActor(URI: String)
@@ -57,11 +87,16 @@ case class HTTPRequestActor(URI: String)
     
     def receive = {
         case HTTPRequestGETRequest(URI) => {
-            val parsed = HTTPRequestActor.getJSONFromURI(URI)
-            log.debug("parsed: %s".format(parsed))
-        }
-    }
-}
+            try {
+                val parsed = HTTPRequestActor.getJSONFromURI(URI)
+                sender ! HTTPRequestGETResponse(parsed)
+            } catch {
+                case e: HTTPRequestException => 
+                    sender ! akka.actor.Status.Failure(e)
+            } // try/catch
+        } // catch HTTPRequestGETRequest
+    } // def receive
+} // class HTTPRequestActor
 
 object ServiceRegistryActor {
     def ping(context: ActorContext,
@@ -90,6 +125,7 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
     with akka.actor.ActorLogging {
 
     val getListOfServicesURI = "%s/list_of_services".format(serviceRegistryURI)
+    var getListOfServicesFailureCount = 0
 
     override def preStart = {
         log.debug("preStart entry.")
@@ -103,9 +139,34 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
     def receive = {
         case ServiceRegistryGetHostnames(getListOfServicesURI) => {
             log.debug("ServiceRegistryGetHostnames received.")
+            ActorSystem("XMPPBot").scheduler.scheduleOnce(10 seconds) {
+                self ! ServiceRegistryGetHostnames(getListOfServicesURI)
+            }
             val httpRequestActor = context.actorOf(Props(new HTTPRequestActor(getListOfServicesURI)))
-            httpRequestActor ! HTTPRequestGETRequest(getListOfServicesURI)
-        }
+            val future = HTTPRequestActor.get(
+                context = context,
+                actorPath = httpRequestActor.path.toString,
+                URI = getListOfServicesURI,
+                onSuccessCallback = result => {
+                    //log.debug("ServiceRegistryGetHostnames responded: %s".format(result.response))
+                    getListOfServicesFailureCount = 0
+                    // TODO do stuff
+                    httpRequestActor ! PoisonPill
+                },
+                onExceptionCallback = exception => {
+                    exception match {
+                        case HTTPRequestException(cause) => {
+                            log.error("HTTPRequestException. stack trace:\n%s\ncause exception: %s. cause exception stack trace:\n%s".format(
+                                Exceptions.stackTraceToString(exception),
+                                cause,
+                                Exceptions.stackTraceToString(cause)))
+                            getListOfServicesFailureCount += 1
+                        } // case HTTPRequestException
+                    } // match exception
+                    httpRequestActor ! PoisonPill
+                }) // onExceptionCallback
+        } // receive -> ServiceRegistryGetHostnames
+
         case ServiceRegistryPing(contents) => {
             log.debug("ServiceRegistryPing received. Contents: %s".format(contents))
             sender ! ServiceRegistryPong(contents) 
