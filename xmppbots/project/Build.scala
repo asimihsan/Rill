@@ -2,28 +2,33 @@ import sbt._
 import Keys._
 
 object BuildSettings {
-  val buildOrganization = "com.ai"
-  val buildVersion      = "0.1"
-  val buildScalaVersion = "2.9.2"
+    val buildOrganization = "com.ai"
+    val buildVersion      = "0.1"
+    val buildScalaVersion = "2.9.2"
+    val buildJavacOptions = Seq("-Xlint:all", "-deprecation")
+    val buildScalacOptions = Seq("-unchecked", "-deprecation", "-optimise", "-explaintypes")
 
-  val buildSettings = Defaults.defaultSettings ++ Seq (
-    organization := buildOrganization,
-    version      := buildVersion,
-    scalaVersion := buildScalaVersion
-  )
+    val buildSettings = Defaults.defaultSettings ++ Seq (
+        organization := buildOrganization,
+        version      := buildVersion,
+        scalaVersion := buildScalaVersion,
+        javacOptions ++= buildJavacOptions,
+        scalacOptions ++= buildScalacOptions
+    )
 }
 
 object Resolvers {
-  val akkaRepo = "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+    val akkaRepo = "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
 }
 
 object Dependencies {
-  val akka_version = "2.0.1"
-  val smack = "org.igniterealtime.smack" % "smack" % "3.2.1"
-  val smackx = "org.igniterealtime.smack" % "smackx" % "3.2.1"
-  val akka_actor = "com.typesafe.akka" % "akka-actor" % akka_version
-  val http = "net.databinder" %% "dispatch-http" % "0.8.8"
-  val json = "net.liftweb" % "lift-json_2.8.0" % "2.4"
+    val akka_version = "2.0.1"
+    val smack = "org.igniterealtime.smack" % "smack" % "3.2.1"
+    val smackx = "org.igniterealtime.smack" % "smackx" % "3.2.1"
+    val akka_actor = "com.typesafe.akka" % "akka-actor" % akka_version
+    val http = "net.databinder" %% "dispatch-http" % "0.8.8"
+    val json = "net.liftweb" % "lift-json_2.8.0" % "2.4"
+    val scalaj_http = "org.scalaj" %% "scalaj-http" % "0.3.1"
 }
 
 object BuildSetup extends Build {
@@ -36,7 +41,8 @@ object BuildSetup extends Build {
     smackx,
     akka_actor,
     http,
-    json
+    json,
+    scalaj_http
   )
 
   val res = Seq(

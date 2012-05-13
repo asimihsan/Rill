@@ -13,8 +13,12 @@ object Main{
     //val ls = system.actorOf(Props(new Ls), name = "ls")
     //val interpret = system.actorOf(Props(new Interpret), name = "interpret")
 
+    val serviceRegistryURI = "http://mink.datcon.co.uk:10000"
+    val serviceRegistry = system.actorOf(Props(new ServiceRegistryActor(serviceRegistryURI)),
+                                         name = "serviceRegistry")
+
     implicit val config = new ArgsConfig(args)
-    val manager = system.actorOf(Props(new XMPPAgentManager()), name = "manager")
+    val manager = system.actorOf(Props(new XMPPAgentManager(serviceRegistry)), name = "manager")
 
     println("Press any key to stop.")
     Thread.sleep(60000)

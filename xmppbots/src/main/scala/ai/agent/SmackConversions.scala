@@ -2,7 +2,7 @@ package ai.agent
 
 import org.jivesoftware.smack.Connection
 import org.jivesoftware.smack.packet.{Packet, Message}
-import org.jivesoftware.smackx.muc.{InvitationListener, DefaultParticipantStatusListener}
+import org.jivesoftware.smackx.muc.{InvitationListener, ParticipantStatusListener, DefaultParticipantStatusListener}
 
 object SmackConversions {
 

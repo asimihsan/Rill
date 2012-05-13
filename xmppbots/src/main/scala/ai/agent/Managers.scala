@@ -8,8 +8,15 @@ import org.jivesoftware.smackx.muc.{DiscussionHistory, MultiUserChat}
 import org.jivesoftware.smack.provider.ProviderManager
 import org.jivesoftware.smackx.provider.{MUCUserProvider, MUCAdminProvider, MUCOwnerProvider}
 import org.jivesoftware.smackx.GroupChatInvitation
+import org.jivesoftware.smackx.muc.{InvitationListener, ParticipantStatusListener, DefaultParticipantStatusListener}
 import collection.JavaConversions._
 import ai.agent.SmackConversions._
+import akka.util.duration._
+import akka.util.Timeout
+import akka.dispatch.Await
+import akka.dispatch.Future
+import akka.pattern.ask
+import akka.pattern.AskTimeoutException
 
 case class ChatSink(chat: Chat, connection: XMPPConnection) extends Sink {
   override def output(ans: Any) = {
@@ -31,7 +38,23 @@ case class XMPPAgentManager(agents: ActorRef*)(implicit config: Config)
     with MessageListener
     with akka.actor.ActorLogging {
 
+    override def postStop() {
+        log.debug("postStop entry.")
+        connection.disconnect()
+    }
+
     log.debug("starting.")
+
+    ServiceRegistryActor.ping(
+        context = context,
+        onSuccessCallback = result => {
+            log.debug("Received ServiceRegistryPong. contents: %s".format(result.contents))
+        },
+        onAskTimeoutExceptionCallback = exception => {
+            log.error("serviceRegistry did not respond in time")
+            context.actorFor("/user/manager") ! akka.actor.PoisonPill
+        }
+    )
 
     // -------------------------------------------------------------------------
     //  In order to use the InvitationListener on MultiUserChat we need to
@@ -67,10 +90,11 @@ case class XMPPAgentManager(agents: ActorRef*)(implicit config: Config)
     //  If someone invies us to a multi-user chat then unconditionally join
     //  the chat and output a message.
     // ------------------------------------------------------------------------
-    MultiUserChat.addInvitationListener(connection, (e: InvitationListenerArguments) => {
+    MultiUserChat.addInvitationListener(connection, invitationListener)
+    lazy val invitationListener = (e: InvitationListenerArguments) => {
         log.debug("invitationReceived. room: %s, inviter: %s, reason: %s, password: %s, message: %s".format(e.room, e.inviter, e.reason, e.password, e.message));
-        val chat = new MultiUserChat(e.conn, e.room)
-        val history: DiscussionHistory = new DiscussionHistory()
+        var chat = new MultiUserChat(e.conn, e.room)
+        var history = new DiscussionHistory()
         history.setMaxStanzas(0)
         val nickname = username.split("@").head
         chat.join(nickname, e.password, history, SmackConfiguration.getPacketReplyTimeout())
@@ -82,19 +106,21 @@ case class XMPPAgentManager(agents: ActorRef*)(implicit config: Config)
         //  this is flaky, so in the background poll the participants of the
         //  room and leave if the inviter is no longer part of that list.
         // --------------------------------------------------------------------
-        chat.addParticipantStatusListener((e: ParticipantStatusListenerLeftArguments) => {
+        chat.addParticipantStatusListener(participantStatusListener)
+        lazy val participantStatusListener: ParticipantStatusListener = (e: ParticipantStatusListenerLeftArguments) => {
             log.debug("ParticipantStatusListener: participant %s left.".format(e.participant))
             if (e.participant == inviterAsParticipant) {
                 log.debug("User who invited me left, so I'm leaving too.")
                 chat.leave()
+                chat.removeParticipantStatusListener(participantStatusListener)
+                chat = null
+                history = null
             }
-        })
+        }
         // --------------------------------------------------------------------
-        
-    })
+    }
     // ------------------------------------------------------------------------
     
-
   connection.getChatManager.addChatListener(this)
 
   val roster: Roster = connection.getRoster()
@@ -122,11 +148,6 @@ case class XMPPAgentManager(agents: ActorRef*)(implicit config: Config)
     //self !(message.getBody, ChatSink(chat, connection))
   }
 
-  //Actor shutdown hook
-  override def postStop() {
-    connection.disconnect()
-    log.debug("Disconnected.")
-  }
 }
 
 
