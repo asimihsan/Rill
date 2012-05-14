@@ -27,6 +27,7 @@ object Dependencies {
     val smackx = "org.igniterealtime.smack" % "smackx" % "3.2.1"
     val akka_actor = "com.typesafe.akka" % "akka-actor" % akka_version
     val akka_slf4j = "com.typesafe.akka" % "akka-slf4j" % akka_version
+    val akka_zeromq = "com.typesafe.akka" % "akka-zeromq" % akka_version
     val http = "net.databinder" %% "dispatch-http" % "0.8.8"
     val json = "net.liftweb" % "lift-json_2.8.0" % "2.4"
     val scalaj_http = "org.scalaj" %% "scalaj-http" % "0.3.1"
@@ -43,6 +44,7 @@ object BuildSetup extends Build {
     smackx,
     akka_actor,
     akka_slf4j,
+    akka_zeromq,
     http,
     json,
     scalaj_http,
