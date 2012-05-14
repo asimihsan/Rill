@@ -17,12 +17,21 @@ import net.liftweb.json.JsonAST.{JArray, JField, JObject, JString}
 import net.liftweb.json.JsonParser
 import java.io.{InputStreamReader, StringWriter, PrintWriter}
 
+import scala.collection.mutable.ListBuffer
+import scala.util.Sorting
+
 sealed class XmppBotMessage
 
-case class ServiceRegistryGetHostnames(getListOfServicesURI: String) extends XmppBotMessage
-case class ServiceRegistryGetServicesForHostname(hostname: String) extends XmppBotMessage
+case class ServiceRegistryUpdateServices(getListOfServicesURI: String) extends XmppBotMessage
+case class ServiceRegistryGetServices() extends XmppBotMessage
+case class ServiceRegistryGetServicesResponse(services: List[Service]) extends XmppBotMessage
 case class ServiceRegistryPing(contents: String) extends XmppBotMessage
 case class ServiceRegistryPong(contents: String) extends XmppBotMessage
+
+case class Service(parserName: String, binding: String) extends Ordered[Service] {
+    override def toString = "{Service: parserName: %s, binding: %s".format(parserName, binding)
+    def compare(that: Service) = parserName compare that.parserName
+}
 
 case class HTTPRequestGETRequest(URI: String) extends XmppBotMessage
 case class HTTPRequestGETResponse(response: JObject) extends XmppBotMessage
@@ -104,20 +113,32 @@ object ServiceRegistryActor {
              timeout: Duration = 5 seconds,
              contents: String = "hello",
              onSuccessCallback: (ServiceRegistryPong) => Unit,
-             onAskTimeoutExceptionCallback: (AskTimeoutException) => Unit) = {
+             onExceptionCallback: (Exception) => Unit) = {
 
             val message = ServiceRegistryPing(contents)
             val future = context.actorFor(actorPath).ask(message)(timeout)
             future onComplete {
                 case Right(result: ServiceRegistryPong) => onSuccessCallback(result) 
-                case Left(exception: AskTimeoutException) => onAskTimeoutExceptionCallback(exception)
+                case Left(exception: Exception) => onExceptionCallback(exception)
             }
             future
         }
 
-    def getListOfServices(listOfServicesURI: String) = {
-        
-    }
+    def getListOfServices(context: ActorContext,
+                          actorPath: String = "/user/serviceRegistry",
+                          timeout: Duration = 5 seconds,
+                          contents: String = "hello",
+                          onSuccessCallback: (ServiceRegistryGetServicesResponse) => Unit,
+                          onExceptionCallback: (Exception) => Unit) = {
+
+            val message = ServiceRegistryGetServices()
+            val future = context.actorFor(actorPath).ask(message)(timeout)
+            future onComplete {
+                case Right(result: ServiceRegistryGetServicesResponse) => onSuccessCallback(result) 
+                case Left(exception: Exception) => onExceptionCallback(exception)
+            }
+            future
+        }
 }
 
 case class ServiceRegistryActor(serviceRegistryURI: String)
@@ -126,10 +147,11 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
 
     val getListOfServicesURI = "%s/list_of_services".format(serviceRegistryURI)
     var getListOfServicesFailureCount = 0
+    var services: List[Service] = List()
 
     override def preStart = {
         log.debug("preStart entry.")
-        self ! ServiceRegistryGetHostnames(getListOfServicesURI)
+        self ! ServiceRegistryUpdateServices(getListOfServicesURI)
     }
 
     override def postStop = {
@@ -137,10 +159,20 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
     }
 
     def receive = {
-        case ServiceRegistryGetHostnames(getListOfServicesURI) => {
-            log.debug("ServiceRegistryGetHostnames received.")
+        // -------------------------------------------------------------------
+        //  Return the list of services that we know about.
+        // -------------------------------------------------------------------
+        case ServiceRegistryGetServices => sender ! ServiceRegistryGetServicesResponse(services)
+        // -------------------------------------------------------------------
+
+        // -------------------------------------------------------------------
+        //  Get a list of services from the service registry once every
+        //  10 seconds and then stash the result. 
+        // -------------------------------------------------------------------
+        case ServiceRegistryUpdateServices(getListOfServicesURI) => {
+            log.debug("ServiceRegistryUpdateServices received.")
             ActorSystem("XMPPBot").scheduler.scheduleOnce(10 seconds) {
-                self ! ServiceRegistryGetHostnames(getListOfServicesURI)
+                self ! ServiceRegistryUpdateServices(getListOfServicesURI)
             }
             val httpRequestActor = context.actorOf(Props(new HTTPRequestActor(getListOfServicesURI)))
             val future = HTTPRequestActor.get(
@@ -148,24 +180,44 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
                 actorPath = httpRequestActor.path.toString,
                 URI = getListOfServicesURI,
                 onSuccessCallback = result => {
-                    //log.debug("ServiceRegistryGetHostnames responded: %s".format(result.response))
+                    // -------------------------------------------------------
+                    //  We have a JObject in result.response, which is the
+                    //  parsed JSON of the list of services. Turn this into a
+                    //  Map and stash it. 
+                    // -------------------------------------------------------
+                    //log.debug("ServiceRegistryUpdateServices responded: %s".format(result.response))
+                    var newServices: ListBuffer[Service] = ListBuffer()
+                    result.response.values.foreach {
+                        case (parserName, binding) => {
+                            newServices += Service(parserName, binding.toString)
+                        }
+                    }
+                    newServices = newServices.sortWith((e1, e2) => (e1 < e2))
+                    if (!newServices.corresponds(services){_ == _}) {
+                        services = newServices.toList
+                        log.debug("services changed to %s.".format(services))
+                    }
                     getListOfServicesFailureCount = 0
-                    // TODO do stuff
                     httpRequestActor ! PoisonPill
+                    // -------------------------------------------------------
                 },
                 onExceptionCallback = exception => {
+                    getListOfServicesFailureCount += 1
                     exception match {
                         case HTTPRequestException(cause) => {
                             log.error("HTTPRequestException. stack trace:\n%s\ncause exception: %s. cause exception stack trace:\n%s".format(
                                 Exceptions.stackTraceToString(exception),
                                 cause,
                                 Exceptions.stackTraceToString(cause)))
-                            getListOfServicesFailureCount += 1
                         } // case HTTPRequestException
+                        //case AskTimeoutException => {
+                        //    log.error("AskTimeoutException. stack trace:\n%s".format(Exceptions.stackTraceToString(exception)))
+                        //}
                     } // match exception
                     httpRequestActor ! PoisonPill
                 }) // onExceptionCallback
-        } // receive -> ServiceRegistryGetHostnames
+        } // receive -> ServiceRegistryUpdateServices
+        // -------------------------------------------------------------------
 
         case ServiceRegistryPing(contents) => {
             log.debug("ServiceRegistryPing received. Contents: %s".format(contents))

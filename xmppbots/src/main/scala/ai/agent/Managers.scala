@@ -50,8 +50,8 @@ case class XMPPAgentManager(agents: ActorRef*)(implicit config: Config)
         onSuccessCallback = result => {
             log.debug("Received ServiceRegistryPong. contents: %s".format(result.contents))
         },
-        onAskTimeoutExceptionCallback = exception => {
-            log.error("serviceRegistry did not respond in time")
+        onExceptionCallback = exception => {
+            log.error("serviceRegistry hit an exception")
             context.actorFor("/user/manager") ! akka.actor.PoisonPill
         }
     )

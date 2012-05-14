@@ -10,7 +10,7 @@
         <encoder>
             <pattern>%date{ISO8601} %-5level %logger{36} %X{sourceThread} %X{akkaSource} - %msg%n</pattern>
         </encoder>
-        <file>~/rill_xmppbots.log</file>
+        <file>/var/log/rill/rill_xmppbots.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
             <fileNamePattern>rill_xmppbots.log.%i</fileNamePattern>
