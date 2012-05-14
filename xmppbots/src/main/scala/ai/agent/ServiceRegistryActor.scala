@@ -15,36 +15,24 @@ import akka.actor.PoisonPill
 import scalaj.http.{Http, HttpOptions}
 import net.liftweb.json.JsonAST.{JArray, JField, JObject, JString}
 import net.liftweb.json.JsonParser
-import java.io.{InputStreamReader, StringWriter, PrintWriter}
 
 import scala.collection.mutable.ListBuffer
 import scala.util.Sorting
 
-sealed class XmppBotMessage
+import java.io.InputStreamReader
 
-case class ServiceRegistryUpdateServices(getListOfServicesURI: String) extends XmppBotMessage
-case class ServiceRegistryGetServices() extends XmppBotMessage
-case class ServiceRegistryGetServicesResponse(services: List[Service]) extends XmppBotMessage
-case class ServiceRegistryPing(contents: String) extends XmppBotMessage
-case class ServiceRegistryPong(contents: String) extends XmppBotMessage
+sealed class ServiceRegistryMessage
+case class ServiceRegistryUpdateServices(getServicesURI: String) extends ServiceRegistryMessage
+case class ServiceRegistryGetServices() extends ServiceRegistryMessage
+case class ServiceRegistryGetServicesResponse(services: List[Service]) extends ServiceRegistryMessage
+case class ServiceRegistryPing(contents: String) extends ServiceRegistryMessage
+case class ServiceRegistryPong(contents: String) extends ServiceRegistryMessage
 
-case class Service(parserName: String, binding: String) extends Ordered[Service] {
-    override def toString = "{Service: parserName: %s, binding: %s".format(parserName, binding)
-    def compare(that: Service) = parserName compare that.parserName
-}
-
-case class HTTPRequestGETRequest(URI: String) extends XmppBotMessage
-case class HTTPRequestGETResponse(response: JObject) extends XmppBotMessage
-case class HTTPRequestSuicide() extends XmppBotMessage
+case class HTTPRequestGETRequest(URI: String) extends ServiceRegistryMessage
+case class HTTPRequestGETResponse(response: JObject) extends ServiceRegistryMessage
+case class HTTPRequestSuicide() extends ServiceRegistryMessage
 
 case class HTTPRequestException(cause: Exception) extends Exception
-object Exceptions {
-    def stackTraceToString(exception: Exception): String = {
-        val sw = new StringWriter
-        exception.printStackTrace(new PrintWriter(sw))
-        sw.toString()
-    }
-}
 
 object HTTPRequestActor {
     def getJSONFromURI(URI: String) = {
@@ -124,12 +112,13 @@ object ServiceRegistryActor {
             future
         }
 
-    def getListOfServices(context: ActorContext,
-                          actorPath: String = "/user/serviceRegistry",
-                          timeout: Duration = 5 seconds,
-                          contents: String = "hello",
-                          onSuccessCallback: (ServiceRegistryGetServicesResponse) => Unit,
-                          onExceptionCallback: (Exception) => Unit) = {
+    def getServices(context: ActorContext,
+                    actorPath: String = "/user/serviceRegistry",
+                    timeout: Duration = 5 seconds,
+                    onSuccessCallback: (ServiceRegistryGetServicesResponse) => Unit,
+                    onExceptionCallback: (Exception) => Unit) = {
+            val system = ActorSystem("XMPPBot")
+            system.log.info("getServices entry.")
 
             val message = ServiceRegistryGetServices()
             val future = context.actorFor(actorPath).ask(message)(timeout)
@@ -145,40 +134,50 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
     extends Actor
     with akka.actor.ActorLogging {
 
-    val getListOfServicesURI = "%s/list_of_services".format(serviceRegistryURI)
-    var getListOfServicesFailureCount = 0
+    val getServicesURI = "%s/list_of_services".format(serviceRegistryURI)
+    var getServicesFailureCount = 0
     var services: List[Service] = List()
 
     override def preStart = {
         log.debug("preStart entry.")
-        self ! ServiceRegistryUpdateServices(getListOfServicesURI)
+        self ! ServiceRegistryUpdateServices(getServicesURI)
     }
 
     override def postStop = {
         log.debug("postStop entry.")
     }
 
-    def receive = {
+    override def receive = {
         // -------------------------------------------------------------------
         //  Return the list of services that we know about.
         // -------------------------------------------------------------------
-        case ServiceRegistryGetServices => sender ! ServiceRegistryGetServicesResponse(services)
+        case ServiceRegistryGetServices() => {
+            log.debug("ServiceRegistryGetServices message received from: %s.".format(sender))
+            sender ! ServiceRegistryGetServicesResponse(services)
+        }
         // -------------------------------------------------------------------
+        //
+        case ServiceRegistryPing(contents) => {
+            log.debug("ServiceRegistryPing received. Contents: %s".format(contents))
+            sender ! ServiceRegistryPong(contents) 
+        }
 
         // -------------------------------------------------------------------
         //  Get a list of services from the service registry once every
         //  10 seconds and then stash the result. 
         // -------------------------------------------------------------------
-        case ServiceRegistryUpdateServices(getListOfServicesURI) => {
+        case ServiceRegistryUpdateServices(getServicesURI) => {
             log.debug("ServiceRegistryUpdateServices received.")
+            /*
             ActorSystem("XMPPBot").scheduler.scheduleOnce(10 seconds) {
-                self ! ServiceRegistryUpdateServices(getListOfServicesURI)
+                self ! ServiceRegistryUpdateServices(getServicesURI)
             }
-            val httpRequestActor = context.actorOf(Props(new HTTPRequestActor(getListOfServicesURI)))
+            */
+            val httpRequestActor = context.actorOf(Props(new HTTPRequestActor(getServicesURI)))
             val future = HTTPRequestActor.get(
                 context = context,
                 actorPath = httpRequestActor.path.toString,
-                URI = getListOfServicesURI,
+                URI = getServicesURI,
                 onSuccessCallback = result => {
                     // -------------------------------------------------------
                     //  We have a JObject in result.response, which is the
@@ -197,12 +196,12 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
                         services = newServices.toList
                         log.debug("services changed to %s.".format(services))
                     }
-                    getListOfServicesFailureCount = 0
+                    getServicesFailureCount = 0
                     httpRequestActor ! PoisonPill
                     // -------------------------------------------------------
                 },
                 onExceptionCallback = exception => {
-                    getListOfServicesFailureCount += 1
+                    getServicesFailureCount += 1
                     exception match {
                         case HTTPRequestException(cause) => {
                             log.error("HTTPRequestException. stack trace:\n%s\ncause exception: %s. cause exception stack trace:\n%s".format(
@@ -219,10 +218,6 @@ case class ServiceRegistryActor(serviceRegistryURI: String)
         } // receive -> ServiceRegistryUpdateServices
         // -------------------------------------------------------------------
 
-        case ServiceRegistryPing(contents) => {
-            log.debug("ServiceRegistryPing received. Contents: %s".format(contents))
-            sender ! ServiceRegistryPong(contents) 
-        }
     }
 } // class ServiceRegistryActor
 
