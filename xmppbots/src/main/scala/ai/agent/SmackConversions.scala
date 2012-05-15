@@ -23,12 +23,15 @@ object SmackConversions {
                 f(InvitationListenerArguments(conn, room, inviter, reason, password, message))
         }
 
-    case class ParticipantStatusListenerLeftArguments(participant: String)
-    implicit def functionToParticipantStatusListenerLeft(f: ParticipantStatusListenerLeftArguments => Unit) = 
+    case class ParticipantStatusListenerArguments(participant: String, actor: Option[String], reason: Option[String])
+    implicit def functionToParticipantStatusListener(f: ParticipantStatusListenerArguments => Unit) = 
         new DefaultParticipantStatusListener {
             override def left(participant: String) =
-                f(ParticipantStatusListenerLeftArguments(participant))
+                f(ParticipantStatusListenerArguments(participant, None, None))
+            override def kicked(participant: String, actor: String, reason: String) =
+                f(ParticipantStatusListenerArguments(participant, Some(actor), Some(reason)))
+            override def banned(participant: String, actor: String, reason: String) = 
+                f(ParticipantStatusListenerArguments(participant, Some(actor), Some(reason)))
         }
-
 }
 
