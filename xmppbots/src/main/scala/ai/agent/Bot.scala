@@ -47,11 +47,13 @@ case class GroupChatSink(chat: MultiUserChat) extends Sink {
 sealed class BotMessage
 case class BotStartMessage() extends BotMessage
 case class BotSubscriptionMessage(message: String) extends BotMessage
+case class BotStopSubscription() extends BotMessage
 
 case class ZeroMQSubscriptionActor(bot: Bot)
     extends Actor
     with akka.actor.ActorLogging {
 
+    val system: ActorSystem = ActorSystem("XMPPBot")
     var subSocket: ActorRef = null
     var destinationActor: ActorRef = null
 
@@ -62,11 +64,12 @@ case class ZeroMQSubscriptionActor(bot: Bot)
         // -----------------------------------------------------------------------
         //  Initialize local variables.
         // -----------------------------------------------------------------------
-        subSocket = ZeroMQExtension(ActorSystem("XMPPBot"))
+        subSocket = ZeroMQExtension(system)
                     .newSocket(SocketType.Sub,
                                Listener(self),
                                Connect(bot.binding),
                                Subscribe(""))
+        subSocket ! Linger(0)
         log.debug("created subSocket")
         destinationActor = bot.actorRef
         // -----------------------------------------------------------------------
@@ -77,7 +80,7 @@ case class ZeroMQSubscriptionActor(bot: Bot)
     }
 
     def receive = {
-        case m: ZMQMessage => {
+        case m: akka.zeromq.ZMQMessage => {
             val rawPayload = m.firstFrameAsString
             val decodedPayload = JsonParser.parse(rawPayload).asInstanceOf[JObject]
             var contents: String = null
@@ -91,6 +94,17 @@ case class ZeroMQSubscriptionActor(bot: Bot)
             //log.debug("got ZMQ message payload: %s".format(contents))
             destinationActor ! BotSubscriptionMessage(contents)
         } // case ZMQMessage
+        case BotStopSubscription => {
+            log.debug("Received BotStopSubscription message.")
+            subSocket ! PoisonPill
+            //system stop subSocket
+        }
+        case m => {
+            if (m == akka.zeromq.ZeroMQ.connecting())
+                log.debug("Connecting message received for the SubSocket")
+            if (m == akka.zeromq.ZeroMQ.closed())
+                log.debug("Closed message received for the SubSocket")
+        }
     } // def receive
 } // class ZeroMQSubscriptionActor
 
@@ -138,6 +152,7 @@ class BotActor(service: Service)
             log.debug("no chats left, so stop ZeroMQ actor.")
             if (zeroMQSubscriptionActor != null) {
                 log.debug("found ZeroMQ actor, so kill it.")
+                zeroMQSubscriptionActor ! BotStopSubscription
                 zeroMQSubscriptionActor ! PoisonPill
                 zeroMQSubscriptionActor = null
             }
