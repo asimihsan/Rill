@@ -23,9 +23,11 @@ import org.jivesoftware.smackx.provider.{MUCUserProvider, MUCAdminProvider, MUCO
 import org.jivesoftware.smackx.GroupChatInvitation
 import org.jivesoftware.smackx.muc.{InvitationListener, ParticipantStatusListener, DefaultParticipantStatusListener}
 
+import net.liftweb.json.JsonAST.{JArray, JField, JObject, JString}
+import net.liftweb.json.JsonParser
+
 import ai.agent.SmackConversions._
 import collection.JavaConversions._
-
 import scala.collection.mutable.ListBuffer
 
 case class ChatSink(chat: Chat, connection: XMPPConnection) extends Sink {
@@ -44,11 +46,14 @@ case class GroupChatSink(chat: MultiUserChat) extends Sink {
 
 sealed class BotMessage
 case class BotStartMessage() extends BotMessage
-case class BotGetSubscriptionMessaage() extends BotMessage
+case class BotSubscriptionMessage(message: String) extends BotMessage
 
 case class ZeroMQSubscriptionActor(bot: Bot)
     extends Actor
     with akka.actor.ActorLogging {
+
+    var subSocket: ActorRef = null
+    var destinationActor: ActorRef = null
 
     log.debug("starting.")
 
@@ -57,22 +62,15 @@ case class ZeroMQSubscriptionActor(bot: Bot)
         // -----------------------------------------------------------------------
         //  Initialize local variables.
         // -----------------------------------------------------------------------
-        val subSocket = ActorSystem("XMPPBot")
-                        .newSocket(SocketType.Sub,
-                                   Listener(self),
-                                   Connect(bot.binding),
-                                   Subscribe(""))
+        subSocket = ZeroMQExtension(ActorSystem("XMPPBot"))
+                    .newSocket(SocketType.Sub,
+                               Listener(self),
+                               Connect(bot.binding),
+                               Subscribe(""))
         log.debug("created subSocket")
-        /*
-        val subSocket = context.system.newSocket(SocketType.Sub,
-                                                 Listener(self),
-                                                 Connect(bot.binding),
-                                                 Subscribe(""))
-        */
-        val destinationActor: ActorRef = bot.actorRef
+        destinationActor = bot.actorRef
         // -----------------------------------------------------------------------
-
-    }
+    } // def preStart
 
     override def postStop = {
         log.debug("postStop entry.")
@@ -80,9 +78,20 @@ case class ZeroMQSubscriptionActor(bot: Bot)
 
     def receive = {
         case m: ZMQMessage => {
-            log.debug("got ZMQ message payload: %s".format(m.payload(1)))
-        }
-    }
+            val rawPayload = m.firstFrameAsString
+            val decodedPayload = JsonParser.parse(rawPayload).asInstanceOf[JObject]
+            var contents: String = null
+            decodedPayload.values.foreach {
+                case (key, value) => {
+                    if (key == "contents") {
+                        contents = value.toString
+                    }
+                }
+            }
+            //log.debug("got ZMQ message payload: %s".format(contents))
+            destinationActor ! BotSubscriptionMessage(contents)
+        } // case ZMQMessage
+    } // def receive
 } // class ZeroMQSubscriptionActor
 
 case class Bot(service: Service, actorRef: ActorRef) {
@@ -118,18 +127,22 @@ class BotActor(service: Service)
         chats += chat
         if (chats.length == 1) {
             log.debug("first chat added, so start ZeroMQ actor.")
-            //zeroMQSubscriptionActor = context.actorOf(Props(new ZeroMQSubscriptionActor(bot)),
-            //                                         name = "z")
+            zeroMQSubscriptionActor = context.actorOf(Props(new ZeroMQSubscriptionActor(bot)),
+                                                     name = "z")
         }
-    }
+    } // addChat
 
     def removeChat(chat: MultiUserChat) = {
         chats.remove(chats.indexOf(chat))
         if (chats.length == 0) {
             log.debug("no chats left, so stop ZeroMQ actor.")
-            //zeroMQSubscriptionActor ! PoisonPill
+            if (zeroMQSubscriptionActor != null) {
+                log.debug("found ZeroMQ actor, so kill it.")
+                zeroMQSubscriptionActor ! PoisonPill
+                zeroMQSubscriptionActor = null
+            }
         }
-    }
+    } // removeChat
 
     override def preStart = {
         log.debug("preStart entry.")
@@ -144,7 +157,13 @@ class BotActor(service: Service)
 
     override def receive = {
         case BotStartMessage() => initialize
-    }
+        case BotSubscriptionMessage(message) => {
+            require(chats.length > 0)
+            for (chat <- chats) {
+                chat.sendMessage(message)
+            }
+        } // case BotSubscriptionMessage
+    } // def receive
 
     def initialize = {
         // ----------------------------------------------------------------
