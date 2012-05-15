@@ -53,13 +53,14 @@ case class ZeroMQSubscriptionActor(bot: Bot)
         case m: akka.zeromq.ZMQMessage => {
             val rawPayload = m.firstFrameAsString
             val decodedPayload = JsonParser.parse(rawPayload).asInstanceOf[JObject]
-            var contents: String = decodedPayload
-                                   .values
-                                   .filterKeys(_ == "contents")
-                                   .get("contents")
-                                   .toString
-            //log.debug("got ZMQ message payload: %s".format(contents))
-            destinationActor ! BotSubscriptionMessage(contents)
+            var contents = decodedPayload
+                           .values
+                           .filterKeys(_ == "contents")
+                           .get("contents")
+            contents match {
+                case Some(elem) => destinationActor ! BotSubscriptionMessage(elem.toString)
+                case None => log.warning("got ZMQ message payload without contents: %s".format(rawPayload))
+            }
         } // case ZMQMessage
         case BotStopSubscriptionMessage => {
             log.debug("Received BotStopSubscription message.")

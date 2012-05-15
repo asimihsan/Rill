@@ -1,8 +1,9 @@
 package ai.agent
 
-import org.jivesoftware.smack.Connection
+import org.jivesoftware.smack.{Connection, PacketListener}
 import org.jivesoftware.smack.packet.{Packet, Message}
 import org.jivesoftware.smackx.muc.{InvitationListener, ParticipantStatusListener, DefaultParticipantStatusListener}
+import org.jivesoftware.smack.packet.{Packet, Message}
 
 object SmackConversions {
 
@@ -33,5 +34,15 @@ object SmackConversions {
             override def banned(participant: String, actor: String, reason: String) = 
                 f(ParticipantStatusListenerArguments(participant, Some(actor), Some(reason)))
         }
+
+    case class MessageListenerArguments(message: Message)
+    implicit def functionToMessageListenerArguments(f: MessageListenerArguments => Unit) =
+        new PacketListener {
+            override def processPacket(packet: Packet) = packet match {
+                case m: Message => {
+                    f(MessageListenerArguments(m)) 
+                } // case Message
+            } // def processPacket
+        } // PacketListener
 }
 
