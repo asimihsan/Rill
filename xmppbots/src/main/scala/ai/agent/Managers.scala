@@ -34,7 +34,7 @@ case class XMPPAgentManager(agents: ActorRef*)
 
     override def preStart = {
         log.debug("preStart entry.")
-        ActorSystem("XMPPBot").scheduler.scheduleOnce(3 seconds) {
+        ActorSystem("XMPPBot").scheduler.scheduleOnce(1 seconds) {
             self ! ManagerUpdateServices()
         }
     }
