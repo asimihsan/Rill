@@ -55,7 +55,6 @@ case class ZeroMQSubscriptionActor(bot: Bot)
             val decodedPayload = JsonParser.parse(rawPayload).asInstanceOf[JObject]
             var contents = decodedPayload
                            .values
-                           .filterKeys(_ == "contents")
                            .get("contents")
             contents match {
                 case Some(elem) => destinationActor ! BotSubscriptionMessage(elem.toString)
