@@ -29,6 +29,7 @@ import net.liftweb.json.JsonParser
 import ai.agent.SmackConversions._
 import collection.JavaConversions._
 import scala.collection.mutable.LinkedHashSet
+import scala.util.matching.Regex
 
 sealed class BotMessage
 case class BotStartMessage() extends BotMessage
@@ -47,6 +48,8 @@ class BotActor(service: Service)
     var connection: XMPPConnection = null
     val chats: LinkedHashSet[MultiUserChat] = LinkedHashSet()
     var zeroMQSubscriptionActor: ActorRef = null
+    val defaultRegex = """Assertion.*failed|Unhandled exception|signal 11|MetaSwitch check failed|detected a deadlock|Exception caught on
+    signal|Config stub is starting|vp3craft.*Run script|DC_ASSERT|EP REBOOT REASON|Assertion.*failed|fatal kernel task-level exception""".r
     // -----------------------------------------------------------------------
 
     def addChat(chat: MultiUserChat) = {
@@ -118,12 +121,24 @@ class BotActor(service: Service)
             } // for chat in orphanChats
         } // case BotCheckIfStillInChatsMessage
 
+        // -------------------------------------------------------------------
+        //  Got a message from the ZeroMQ actor.
+        //
+        //  !!AI TODO hack of hacks. Just regexp it here, use the Chat
+        //  class later.
+        // -------------------------------------------------------------------
         case BotSubscriptionMessage(message) => {
+            if (chats.size <= 0) {
+                log.error("received BotSubscriptionMessage, but no chats are open! Message: %s".format(message))
+            }
             require(chats.size > 0)
-            for (chat <- chats) {
-                chat.sendMessage(message)
+            if (((defaultRegex findFirstIn message) isEmpty) == false) {
+                for (chat <- chats) {
+                    chat.sendMessage(message)
+                }
             }
         } // case BotSubscriptionMessage
+        // -------------------------------------------------------------------
 
     } // def receive
 
@@ -211,8 +226,12 @@ class BotActor(service: Service)
             
             // --------------------------------------------------------------------
             //  Process messages within a multi user chat.
+            //
+            //  !!AI Actually no, don't. This leads to O(n^2) increase in
+            //  processing cost with no benefit, where n is number of bots in
+            //  chat. I don't want this! Use private messages!!
             // --------------------------------------------------------------------
-            chat.addMessageListener(messageListener)
+            //chat.addMessageListener(messageListener)
             lazy val messageListener = (e: MessageListenerArguments) => {
                 val body = e.message.getBody()
                 val indicator = "$%s".format(bot.nickname)
