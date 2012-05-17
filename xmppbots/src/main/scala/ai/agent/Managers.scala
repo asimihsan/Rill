@@ -59,14 +59,29 @@ case class XMPPAgentManager(agents: ActorRef*)
     override def receive = {
         // -------------------------------------------------------------------
         //  Using the services from the ServiceRegistry launch bots.
+        //
+        //  Launch the masspinger actor first, for which a binding must
+        //  exist, then launch all the other bots afterwards. This allows
+        //  all the bots to tell the masspinger to notify them on ping
+        //  changes.
         // -------------------------------------------------------------------
         case ManagerLaunchBots() => {
             log.debug("ManagerLaunchBots message received.")
-            bots = for {
-                service <- services
-                actor = context.actorOf(Props(new BotActor(service)), name = "%s".format(service.parserName))
-            } yield actor
-            log.debug("bot actors: %s".format(bots))
+            if (!services.exists(_.parserName == "masspinger")) {
+                log.error("Service registry does not have a binding for masspinger.")
+                self ! PoisonPill
+            }
+
+            // First, masspinger
+            var masspinger: Option[ActorRef] = None
+            for (service <- services; if (service.parserName == "masspinger"))
+                masspinger = Some(context.actorOf(Props(new MasspingerActor(service)), name = "%s".format(service.parserName)))
+
+            // Then , all the bots.
+            for (service <- services; if (service.parserName != "masspinger"))
+                bots = context.actorOf(Props(new BotActor(service, masspinger.get)), name = "%s".format(service.parserName)) :: bots
+            bots = bots reverse
+            //log.debug("bot actors: %s".format(bots))
         }
         // -------------------------------------------------------------------
         

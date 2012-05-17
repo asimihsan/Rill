@@ -16,7 +16,7 @@ import akka.actor.PoisonPill
 import akka.zeromq._
 
 import org.jivesoftware.smack._
-import packet.{Packet, Message}
+import packet.{Packet, Message, Presence}
 import org.jivesoftware.smackx.muc.{DiscussionHistory, MultiUserChat}
 import org.jivesoftware.smack.provider.ProviderManager
 import org.jivesoftware.smackx.provider.{MUCUserProvider, MUCAdminProvider, MUCOwnerProvider}
@@ -36,8 +36,10 @@ case class BotStartMessage() extends BotMessage
 case class BotSubscriptionMessage(message: String) extends BotMessage
 case class BotStopSubscriptionMessage() extends BotMessage
 case class BotCheckIfStillInChatsMessage() extends BotMessage
+case class BotIsAliveMessage() extends BotMessage
+case class BotIsDeadMessage() extends BotMessage
 
-class BotActor(service: Service)
+case class BotActor(service: Service, masspinger: ActorRef)
     extends Actor
     with akka.actor.ActorLogging {
 
@@ -49,7 +51,7 @@ class BotActor(service: Service)
     val chats: LinkedHashSet[MultiUserChat] = LinkedHashSet()
     var zeroMQSubscriptionActor: ActorRef = null
     val defaultRegex = """Assertion.*failed|Unhandled exception|signal 11|MetaSwitch check failed|detected a deadlock|Exception caught on
-    signal|Config stub is starting|vp3craft.*Run script|DC_ASSERT|EP REBOOT REASON|Assertion.*failed|fatal kernel task-level exception""".r
+    signal|Config stub is starting|vp3craft.*Run script|DC_ASSERT|EP REBOOT REASON|fatal kernel task-level exception|shm_reboot""".r
     // -----------------------------------------------------------------------
 
     def addChat(chat: MultiUserChat) = {
@@ -97,6 +99,20 @@ class BotActor(service: Service)
         connection.disconnect()
     }
 
+    def sendPresence(isAlive: Boolean) {
+        val packet = new Presence(Presence.Type.available)
+        if (isAlive)
+            packet.setMode(Presence.Mode.available)
+        else
+            packet.setMode(Presence.Mode.away)
+        connection.sendPacket(packet)
+        for (chat <- chats)
+            if (isAlive)
+                chat.sendMessage("I used to be non-pingable, but now I am pingable.")
+            else
+                chat.sendMessage("I used to be pingable, but now I am not.")
+    }
+
     override def receive = {
         case BotStartMessage() => {
             initialize
@@ -111,6 +127,9 @@ class BotActor(service: Service)
                 self,
                 BotCheckIfStillInChatsMessage())
             // ---------------------------------------------------------------
+
+            masspinger ! BotSubscribingToMasspingerMessage(bot)
+
         } // case BotStartMessage
 
         case BotCheckIfStillInChatsMessage() => {
@@ -138,6 +157,13 @@ class BotActor(service: Service)
                 }
             }
         } // case BotSubscriptionMessage
+        // -------------------------------------------------------------------
+        
+        // -------------------------------------------------------------------
+        //  Presence updates. Only masspinger sends us these messages.
+        // -------------------------------------------------------------------
+        case BotIsAliveMessage() => sendPresence(isAlive = true)
+        case BotIsDeadMessage() =>  sendPresence(isAlive = false)
         // -------------------------------------------------------------------
 
     } // def receive

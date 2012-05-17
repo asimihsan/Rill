@@ -38,10 +38,10 @@ case class ZeroMQSubscriptionActor(bot: Bot)
                     .newSocket(SocketType.Sub,
                                Listener(self),
                                Connect(bot.binding),
-                               Subscribe(""))
-        subSocket ! Linger(0)
+                               SubscribeAll)
+        subSocket ! NoLinger
         log.debug("created subSocket")
-        destinationActor = bot.actorRef
+        destinationActor = bot.botRef
         // -----------------------------------------------------------------------
     } // def preStart
 
