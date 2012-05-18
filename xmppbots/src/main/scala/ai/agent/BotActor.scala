@@ -50,8 +50,22 @@ case class BotActor(service: Service, masspinger: ActorRef)
     var connection: XMPPConnection = null
     val chats: LinkedHashSet[MultiUserChat] = LinkedHashSet()
     var zeroMQSubscriptionActor: ActorRef = null
-    val defaultRegex = """Assertion.*failed|Unhandled exception|signal 11|MetaSwitch check failed|detected a deadlock|Exception caught on
-    signal|Config stub is starting|vp3craft.*Run script|DC_ASSERT|EP REBOOT REASON|fatal kernel task-level exception|shm_reboot""".r
+    val defaultRegex = Seq("Assertion.*failed",
+                           "Unhandled exception",
+                           "signal 11",
+                           "Metaswitch check failed",
+                           "detected a deadlock",
+                           "Exception caught on signal",
+                           "Config stub is starting",
+                           "vp3craft.*Run script",
+                           "DC_ASSERT",
+                           "EP REBOOT REASON",
+                           "fatal kernel task-level exception",
+                           "Request to use ISDN signaling ID that is already in use",
+                           "Request to use GR-303 signaling ID that is already in use",
+                           "Request to use SS7 signaling ID that is already in use",
+                           "HDLCmgr is out of ISDN NAIs",
+                           "shm_reboot").mkString("|").r
     // -----------------------------------------------------------------------
 
     def addChat(chat: MultiUserChat) = {
