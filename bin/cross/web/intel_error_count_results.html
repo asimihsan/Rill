@@ -1,7 +1,11 @@
 
 {% include 'fragment_top.html' %}
 
-<h2>Intel error count results</h2>
+<h2>Intel error count results for hostname '{{ hostname }}'</h2>
+
+{% if failure_types_and_counts|length == 0 %}
+<p>No errors found.</p>
+{% endif %}
 
 <ul>
 {% for (friendly_failure_type, failure_type, count) in failure_types_and_counts %}

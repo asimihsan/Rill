@@ -53,7 +53,7 @@ class Database(object):
     def get_collection_names(self, name_filter=None):
         all_collection_names = self.database.collection_names()
         if name_filter:
-            collection_names = [elem for elem in all_collection_names if name_filter in elem]
+            collection_names = [elem for elem in all_collection_names if re.search(name_filter, elem)]
         else:
             collection_names = all_collection_names
         return collection_names
