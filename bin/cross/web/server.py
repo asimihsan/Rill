@@ -254,6 +254,8 @@ def intel_error_count():
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
     datetime_interval = bottle.request.forms.get("datetime_interval")
     assert(datetime_interval in valid_intervals)
+    hostname = bottle.request.forms.get("hostname")
+    assert(hostname in ["_all", "alpheratz", "arrakis", "jabbah", "subra", "wolf", "zosma"])
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -262,7 +264,11 @@ def intel_error_count():
     # ------------------------------------------------------------------------
     datetime_interval_obj = getattr(db, datetime_interval)
     log_type = "ngmg_ms_messages"
-    collection_names = sorted(db.get_collection_names(name_filter = log_type))
+    if hostname == "_all":
+        name_filter = log_type
+    else:
+        name_filter = "%s.*%s" % (hostname, log_type)
+    collection_names = sorted(db.get_collection_names(name_filter = name_filter))
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -373,7 +379,8 @@ def intel_error_count():
     stream = template.stream(failure_types_and_counts = failure_types_and_counts,
                              sorted_failure_ids_and_counts = sorted_failure_ids_and_counts,
                              failure_id_to_full_text_link = failure_id_to_full_text_link,
-                             datetime_interval = datetime_interval)
+                             datetime_interval = datetime_interval,
+                             hostname = hostname)
     for chunk in stream:
         yield chunk
 
@@ -425,6 +432,8 @@ def ep_error_count():
     valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
     datetime_interval = bottle.request.forms.get("datetime_interval")
     assert(datetime_interval in valid_intervals)
+    hostname = bottle.request.forms.get("hostname")
+    assert(hostname in ["_all", "alpheratz", "arrakis", "jabbah", "subra", "wolf", "zosma"])
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -433,7 +442,11 @@ def ep_error_count():
     # ------------------------------------------------------------------------
     datetime_interval_obj = getattr(db, datetime_interval)
     log_type = "ngmg_ep"
-    collection_names = sorted(db.get_collection_names(name_filter = log_type))
+    if hostname == "_all":
+        name_filter = log_type
+    else:
+        name_filter = "%s.*%s" % (hostname, log_type)
+    collection_names = sorted(db.get_collection_names(name_filter = name_filter))
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -510,7 +523,8 @@ def ep_error_count():
                              total_warnings = total_warnings,
                              sorted_error_data = sorted_error_data,
                              total_errors = total_errors,
-                             datetime_interval = datetime_interval)
+                             datetime_interval = datetime_interval,
+                             hostname = hostname)
     for chunk in stream:
         yield chunk
 
