@@ -30,6 +30,7 @@ import ai.agent.SmackConversions._
 import collection.JavaConversions._
 import scala.collection.mutable.LinkedHashSet
 import scala.util.matching.Regex
+import dk.brics.automaton
 
 sealed class BotMessage
 case class BotStartMessage() extends BotMessage
@@ -50,22 +51,25 @@ case class BotActor(service: Service, masspinger: ActorRef)
     var connection: XMPPConnection = null
     val chats: LinkedHashSet[MultiUserChat] = LinkedHashSet()
     var zeroMQSubscriptionActor: ActorRef = null
-    val defaultRegex = Seq("Assertion.*failed",
-                           "Unhandled exception",
-                           "signal 11",
-                           "Metaswitch check failed",
-                           "detected a deadlock",
-                           "Exception caught on signal",
-                           "Config stub is starting",
-                           "vp3craft.*Run script",
-                           "DC_ASSERT",
-                           "EP REBOOT REASON",
-                           "fatal kernel task-level exception",
-                           "Request to use ISDN signaling ID that is already in use",
-                           "Request to use GR-303 signaling ID that is already in use",
-                           "Request to use SS7 signaling ID that is already in use",
-                           "HDLCmgr is out of ISDN NAIs",
-                           "shm_reboot").mkString("|").r
+    val defaultRegexString = Seq("Assertion.*failed",
+                                 "Unhandled exception",
+                                 "signal 11",
+                                 "Metaswitch check failed",
+                                 "detected a deadlock",
+                                 "Exception caught on signal",
+                                 "Config stub is starting",
+                                 "vp3craft.*Run script",
+                                 "DC_ASSERT",
+                                 "EP REBOOT REASON",
+                                 "fatal kernel task-level exception",
+                                 "Request to use ISDN signaling ID that is already in use",
+                                 "Request to use GR-303 signaling ID that is already in use",
+                                 "Request to use SS7 signaling ID that is already in use",
+                                 "HDLCmgr is out of ISDN NAIs",
+                                 "shm_reboot").mkString(".*(", "|", ").*")
+    val defaultRegex = defaultRegexString.r
+    //val defaultRegex = new automaton.RegExp(defaultRegexString).toAutomaton();
+    //val defaultRegex = new automaton.RunAutomaton(new automaton.RegExp(defaultRegexString).toAutomaton());
     // -----------------------------------------------------------------------
 
     def addChat(chat: MultiUserChat) = {
@@ -166,6 +170,7 @@ case class BotActor(service: Service, masspinger: ActorRef)
             }
             require(chats.size > 0)
             if (((defaultRegex findFirstIn message) isEmpty) == false) {
+            //if ((defaultRegex.run(message))) {
                 for (chat <- chats) {
                     chat.sendMessage(message)
                 }
