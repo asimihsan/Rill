@@ -96,6 +96,9 @@ class NgmgStdoutParserLogDatum(NgmgBaseLogDatum):
             if line.startswith("==="):
                 # special. this is a line we can skip.
                 continue
+            if line.startswith("Ctrl portion of IPS with cxs_corr"):
+                # special. this is a line we can skip.
+                continue
             m = self.RE_BLOCK_START.search(line)
             logger.debug("before. m: %s, is_in_block: %s, current_block: %s, old_current_block: %s" % (m, is_in_block, pprint.pformat(current_block), pprint.pformat(old_current_block)))
             if not m and not is_in_block:
