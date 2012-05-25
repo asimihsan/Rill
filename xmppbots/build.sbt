@@ -1,12 +1,21 @@
 fork in run := true
 
 javaOptions in run ++= Seq("-server",
-                           "-Xmx2G",
-                           "-Xss1M",
-                           "-XX:+CMSClassUnloadingEnabled",
-                           "-XX:+UnlockExperimentalVMOptions",
+                           "-Xms2g",
+                           "-Xmx2g",
+                           "-Xss256k",
+                           "-Xmn1g",
                            "-XX:+UseG1GC",
-                           "-XX:MaxGCPauseMillis=10",
+                           "-XX:+AggressiveOpts",
+                           "-XX:+UseBiasedLocking",
+                           "-XX:+UseFastAccessorMethods",
+                           "-XX:+UseNUMA",
+                           "-XX:+CMSClassUnloadingEnabled",
+                           "-XX:TargetSurvivorRatio=90",
+                           "-XX:+OptimizeStringConcat",
+                           "-XX:+UseStringCache",
+                           "-XX:+UseCompressedOops",
                            "-verbose:gc",
-                           "-XX:+PrintGCDetails",
-                           "-XX:+PrintGCTimeStamps") 
+                           "-XX:+PrintGCTimeStamps",
+                           "-XX:+PrintGCDetails")
+
