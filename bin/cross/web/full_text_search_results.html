@@ -3,17 +3,23 @@
 
 <h2>Full text search results.</h2>
 <ul>
-    {% for (collection_name, collection_lines) in log_data %}
-    <li><a href="#{{ collection_name }}">{{ collection_name }}</a>, {{ collection_lines.count() }} result(s).</li>
+    {% for (collection_name, collection_cursors) in log_data %}
+    {% if collection_cursors|length == 0 %}
+    <li><a href="#{{ collection_name }}">{{ collection_name }}</a>, 0 results.</li>
+    {% else %}
+    <li><a href="#{{ collection_name }}">{{ collection_name }}</a>, {{ collection_cursors[0].count() }} result(s).</li>
+    {% endif %}
     {% endfor %}
 </ul>
-{% for (collection_name, collection_lines) in log_data %}
-{% if collection_lines.count() > 0 %}
+{% for (collection_name, collection_cursors) in log_data %}
+{% if collection_cursors|length > 0 and collection_cursors[0].count() > 0 %}
 <h3 id="{{ collection_name }}">{{ collection_name }}</h3>
 <p id="{{ collection_name }}">
     <ul class="unstyled mono">
-        {% for line in collection_lines %}
-        <li><pre>{{ line["contents"] }}</pre></li>
+        {% for cursor in collection_cursors %} 
+            {% for line in cursor %}
+                <li><pre>{{ line["contents"] }}</pre></li>
+            {% endfor %}
         {% endfor %}
     </ul>
 </p>

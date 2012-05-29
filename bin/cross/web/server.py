@@ -164,7 +164,7 @@ def shm_error_count():
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "three_days", "one_week"])
     datetime_interval = bottle.request.forms.get("datetime_interval")
     assert(datetime_interval in valid_intervals)
     # ------------------------------------------------------------------------
@@ -251,7 +251,7 @@ def intel_error_count():
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "three_days", "one_week"])
     datetime_interval = bottle.request.forms.get("datetime_interval")
     assert(datetime_interval in valid_intervals)
     hostname = bottle.request.forms.get("hostname")
@@ -429,7 +429,7 @@ def ep_error_count():
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "three_days", "one_week"])
     datetime_interval = bottle.request.forms.get("datetime_interval")
     assert(datetime_interval in valid_intervals)
     hostname = bottle.request.forms.get("hostname")
@@ -549,38 +549,47 @@ def full_text_search_results():
     # ------------------------------------------------------------------------
 
     valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages", "ngmg_stdout"])
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week", "one_month"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "three_days", "one_week", "one_month"])
+    valid_contexts = set(["0", "1", "5", "10", "20", "100"])
 
     if len(bottle.request.forms.items()) == 0:
         query_items = dict([elem.split("=", 1) for elem in urllib.unquote(bottle.request.query_string).split("&")])
         logger.debug("GET has no query args, so let's get them ourselves. %s" % (query_items, ))
         include_search_string_encoded = query_items["include_search_string"]
         exclude_search_string_encoded = query_items["exclude_search_string"]
+        context_encoded = query_items["context"]
         log_type_encoded = query_items["log_type"]
         datetime_interval_encoded = query_items["datetime_interval"]
     else:
         logger.debug("GET has query items.")
         search_string_encoded = str(bottle.request.forms.get("search_string"))
+        context_encoded = str(bottle.request.forms.get("context"))
         log_type_encoded = str(bottle.request.forms.get("log_type"))
         datetime_interval_encoded = str(bottle.request.forms.get("datetime_interval"))
 
     logger.debug("include_search_string_encoded: %s" % (include_search_string_encoded, ))
     logger.debug("exclude_search_string_encoded: %s" % (exclude_search_string_encoded, ))
+    logger.debug("context_encoded: %s" % (context_encoded, ))
     logger.debug("log_type_encoded: %s" % (log_type_encoded, ))
     logger.debug("datetime_interval_encoded: %s" % (datetime_interval_encoded, ))
 
     include_search_string = base64.urlsafe_b64decode(str(include_search_string_encoded))
     exclude_search_string = base64.urlsafe_b64decode(str(exclude_search_string_encoded))
+    context = base64.urlsafe_b64decode(str(context_encoded))
     log_type = base64.urlsafe_b64decode(str(log_type_encoded))
     datetime_interval = base64.urlsafe_b64decode(str(datetime_interval_encoded))
 
     logger.debug("include_search_string: %s" % (include_search_string, ))
     logger.debug("exclude_search_string: %s" % (exclude_search_string, ))
+    logger.debug("context: %s" % (context, ))
     logger.debug("log_type: %s" % (log_type, ))
     logger.debug("datetime_interval: %s" % (datetime_interval, ))
 
+    assert(context in valid_contexts), "%s not a valid context from set: %s" % (context, valid_contexts)
     assert(log_type in valid_types), "%s not a valid log type from set: %s" % (log_type, valid_types)
     assert(datetime_interval in valid_intervals), "%s not a valid datetime_interval from set: %s" % (datetime_interval, valid_intervals)
+
+    context = int(context)
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -623,12 +632,13 @@ def full_text_search_results():
     log_data = []
     for collection_name in collection_names:
         collection = db.get_collection(collection_name)
-        cursor = db.get_full_text_search_of_logs(collection = collection,
-                                                 include_search_argument = include_tokens,
-                                                 exclude_search_argument = exclude_tokens,
-                                                 datetime_interval = datetime_interval_obj,
-                                                 query_argument = query_string)
-        log_data.append((collection_name, cursor))
+        cursors = db.get_full_text_search_of_logs(collection = collection,
+                                                  include_search_argument = include_tokens,
+                                                  exclude_search_argument = exclude_tokens,
+                                                  datetime_interval = datetime_interval_obj,
+                                                  query_argument = query_string,
+                                                  context = context)
+        log_data.append((collection_name, cursors))
 
     template = jinja2_env.get_template('full_text_search_results.html')
     stream = template.stream(log_data = log_data)
@@ -644,11 +654,13 @@ def full_text_search_results():
     # ------------------------------------------------------------------------
     #   Validate inputs.
     # ------------------------------------------------------------------------
+    valid_contexts = set(["0", "1", "5", "10", "20", "100"])
     valid_types = set(["ngmg_shm_messages", "ngmg_ep", "ngmg_messages", "ngmg_ms_messages", "ngmg_stdout"])
-    valid_intervals = set(["one_hour", "six_hours", "one_day", "one_week", "one_month"])
+    valid_intervals = set(["one_hour", "six_hours", "one_day", "three_days", "one_week", "one_month"])
 
     include_search_string = str(bottle.request.forms.get("include_search_string"))
     exclude_search_string = str(bottle.request.forms.get("exclude_search_string"))
+    context = str(bottle.request.forms.get("context"))
     log_type = str(bottle.request.forms.get("log_type"))
     datetime_interval = str(bottle.request.forms.get("datetime_interval"))
 
@@ -658,10 +670,12 @@ def full_text_search_results():
 
     include_search_string_encoded = base64.urlsafe_b64encode(include_search_string)
     exclude_search_string_encoded = base64.urlsafe_b64encode(exclude_search_string)
+    context_encoded = base64.urlsafe_b64encode(context)
     log_type_encoded = base64.urlsafe_b64encode(log_type)
     datetime_interval_encoded = base64.urlsafe_b64encode(datetime_interval)
     data = {"include_search_string": include_search_string_encoded,
             "exclude_search_string": exclude_search_string_encoded,
+            "context": context_encoded,
             "log_type": log_type_encoded,
             "datetime_interval": datetime_interval_encoded}
     logger.debug("data: %s" % (data, ))

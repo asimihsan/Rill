@@ -6,10 +6,12 @@ from utilities import retry
 
 import datetime
 import pymongo
+import bson
 import re
 
 import time
 import functools
+import pprint
 
 # -----------------------------------------------------------------------------
 #   Database constants.
@@ -122,10 +124,13 @@ class Database(object):
                                      datetime_interval = None,
                                      fields_to_return = ["contents"],
                                      fields_to_ignore = ["_id"],
-                                     query_argument = None):
+                                     query_argument = None,
+                                     context = None):
         #if query_argument:
             #sub_queries = "{'keywords': {'$all': %s}}" % (elem, ) for elem in
             #query_part = {'keywords': {'$and':
+        if context == 0:
+            context = None
         search_part = {'$all': include_search_argument}
         if exclude_search_argument:
             search_part['$nin'] = exclude_search_argument
@@ -136,18 +141,60 @@ class Database(object):
         query_part["datetime"] = {"$gt": start_datetime}
         if fields_to_return:
             filter_part = dict([(field, 1) for field in fields_to_return])
-        if fields_to_ignore:
+        if fields_to_ignore and context is None:
             sub_filter = dict([(field, 0) for field in fields_to_ignore])
             filter_part.update(sub_filter)
         results_cursor = collection.find(query_part, filter_part)
         results_cursor_sorted = results_cursor.sort("datetime", -1)
+        if context is not None:
+            results_cursors = self.get_context_for_cursor(collection = collection,
+                                                          cursor = results_cursor_sorted,
+                                                          fields_to_return = fields_to_return,
+                                                          fields_to_ignore = fields_to_ignore,
+                                                          context = context)
+        else:
+            results_cursors = [results_cursor_sorted]
 
         logger.debug("collection: %s" % (collection, ))
         logger.debug("query_part: %s" % (query_part, ))
         logger.debug("filter_part: %s" % (filter_part, ))
         logger.debug("number of results: %s" % (results_cursor.count(), ))
+        logger.debug("results_cursors: %s" % (pprint.pformat(results_cursors), ))
 
-        return results_cursor
+        return results_cursors
+
+    @retry()
+    def get_context_for_cursor(self,
+                               collection,
+                               cursor,
+                               fields_to_return,
+                               fields_to_ignore,
+                               context):
+        filter_part = {'contents': 1, '_id': 0}
+        cursors = []
+        for row in cursor:
+            original_row_ident = row['_id']
+
+            # The original result
+            query_part = {'_id': original_row_ident}
+            original_cursor = collection.find(query_part, filter_part)
+
+            # Context before
+            query_part = {'_id': {'$lt': original_row_ident}}
+            idents_before = [row["_id"] for row in collection.find(query_part, {'_id': 1}).sort('_id', -1).limit(context)]
+            idents_before.reverse()
+            cursor_before = collection.find({'_id': {'$in': idents_before}}, filter_part).sort('_id', 1)
+
+            # Context after
+            query_part = {'_id': {'$gt': original_row_ident}}
+            cursor_after = collection.find(query_part, filter_part).sort('_id', 1).limit(context)
+
+            # Merge all the cursors.
+            cursors.extend([cursor_before, original_cursor, cursor_after])
+
+        for cursor in cursors:
+            cursor.rewind()
+        return cursors
 
     @retry()
     def get_shm_split_brain_logs(self,

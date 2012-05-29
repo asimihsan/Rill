@@ -13,6 +13,17 @@
         <input name="exclude_search_string" type="text" class="span3" placeholder="Type something...">
     </div>
     <div class="control-group">
+        <label>Context</label>
+        <select name="context" id="context">
+            <option value="0" selected>0</option>
+            <option value="1">1</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="100">100</option>
+        </select>
+    </div>
+    <div class="control-group">
         <label>Log type</label>
         <select name="log_type" id="log_type">
             <option value="ngmg_shm_messages">ShM messages</option>
@@ -28,6 +39,7 @@
             <option value="one_hour">One hour</option>
             <option value="six_hours">Six hours</option>
             <option value="one_day">One day</option>
+            <option value="three_days">Three days</option>
             <option value="one_week">One week</option>
         </select>
     </div>
