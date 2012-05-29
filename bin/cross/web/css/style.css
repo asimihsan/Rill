@@ -717,10 +717,10 @@ code {
 }
 pre {
   display: block;
-  padding: 8.5px;
-  margin: 0 0 9px;
+  padding: 0.5em;
+  margin: 0 0 0.5em;
   font-size: 12px;
-  line-height: 18px;
+  line-height: 1.5em;
   background-color: #f5f5f5;
   border: 1px solid #ccc;
   border: 1px solid rgba(0, 0, 0, 0.15);
