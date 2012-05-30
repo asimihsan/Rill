@@ -43,6 +43,11 @@ APP_NAME = "base_parser"
 
 def get_args():
     parser = argparse.ArgumentParser("Parse incoming ZeroMQ stream of logs, output in another ZeroMQ stream.")
+    parser.add_argument("--box_name",
+                        dest="box_name",
+                        metavar="STRING",
+                        required=True,
+                        help="String that unique identifies this box and the log we're parsing on it.")
     parser.add_argument("--ssh_tap",
                         dest="ssh_tap_zeromq_binding",
                         metavar="ZEROMQ_BINDING",
@@ -172,6 +177,7 @@ def main(app_name, log_datum_class, fields_to_index):
     publish_socket.bind(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
 
+    box_name = args.box_name
     trailing_excess = ""
     full_lines = []
     try:
@@ -202,6 +208,7 @@ def main(app_name, log_datum_class, fields_to_index):
             # ----------------------------------------------------------------
             (log_data, full_lines) = get_log_data_and_excess_lines(full_lines, log_datum_class)
             for log_datum in log_data:
+                log_datum["box_name"] = box_name
                 logger.debug("publishing:\n%r" % (log_datum, ))
                 publish_socket.send(json.dumps(log_datum))
             # ----------------------------------------------------------------

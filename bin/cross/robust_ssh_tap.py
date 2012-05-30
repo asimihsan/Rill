@@ -200,6 +200,7 @@ def main(masspinger_zeromq_binding,
     # ------------------------------------------------------------------------
     logger.debug("parser location: %s" % (parser_filepath, ))
     parser_process = None
+    box_name = "%s_%s" % (host, parser_name)
     if is_bin_parser:
         parser_executable = os.path.join(bin_directory, parser_name + bin_extension)
     else:
@@ -207,7 +208,8 @@ def main(masspinger_zeromq_binding,
         parser_executable += os.path.join(cross_bin_directory, parser_name + ".py")
     parser_command = parser_template.substitute(executable = parser_executable,
                                                 ssh_tap_zeromq_bind = ssh_tap_zeromq_binding,
-                                                parser_zeromq_bind = parser_zeromq_binding).strip()
+                                                parser_zeromq_bind = parser_zeromq_binding,
+                                                box_name = box_name).strip()
     if verbose:
         parser_command += " --verbose"
     logger.debug("parser command: %s" % (parser_command, ))

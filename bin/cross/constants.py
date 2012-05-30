@@ -63,10 +63,10 @@ ssh_tap_template = Template(""" "${executable}" --host "${host}" --command "${co
 # platform-specific parser templates
 if platform.system() == "Windows":
     # Test
-    parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" """)
+    parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" --box_name ${box_name} """)
 else:
     # Production
-    parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" """)
+    parser_template = Template(""" ${executable} --ssh_tap "${ssh_tap_zeromq_bind}" --results "${parser_zeromq_bind}" --box_name ${box_name} """)
 
 tail_query_inode_template = Template(""" while [[ 1 ]]; do date +"%Y-%m-%dT%H:%M:%S"; ls -i ${log_filepath} 2>&1 | awk '{print \$$1}'; sleep 1; done """)
 
