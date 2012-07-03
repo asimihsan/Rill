@@ -76,6 +76,8 @@ class NgmgShmHpilistParserLogDatum(NgmgBaseLogDatum):
     RE_SOURCE = re.compile(".*Source\s*:\s*(?P<source>\d+)", re.IGNORECASE | re.DOTALL)
     RE_EVENT_TYPE = re.compile(".*EventType\s*:\s*(?P<event_type>.*)", re.IGNORECASE | re.DOTALL)
     RE_COMPONENT_PATH = re.compile(".*?(?P<component_path>\{.*\})", re.IGNORECASE | re.DOTALL)
+    RE_SENSOR_NUM = re.compile(".*SensorNum\s*:\s*(?P<sensor_num>\d+)", re.IGNORECASE | re.DOTALL)
+    RE_SENSOR_TYPE = re.compile(".*SensorType\s*:\s*(?P<sensor_type>.*)", re.IGNORECASE | re.DOTALL)
     # ------------------------------------------------------------------------
 
     def __init__(self, lines):
@@ -150,8 +152,8 @@ class NgmgShmHpilistParserLogDatum(NgmgBaseLogDatum):
             # ----------------------------------------------------------------
 
             # ----------------------------------------------------------------
-            #   Go line-by-line and parse for source, event_type, and
-            #   component_path.
+            #   Go line-by-line and parse for source, event_type,
+            #   component_path, sensor_num, and sensor_type.
             # ----------------------------------------------------------------
             for line in old_current_block:
                 m = self.RE_SOURCE.search(line)
@@ -165,6 +167,14 @@ class NgmgShmHpilistParserLogDatum(NgmgBaseLogDatum):
                 m = self.RE_COMPONENT_PATH.search(line)
                 if m:
                     return_value["component_path"] = m.groupdict()["component_path"]
+                    continue
+                m = self.RE_SENSOR_NUM.search(line)
+                if m:
+                    return_value["sensor_num"] = m.groupdict()["sensor_num"]
+                    continue
+                m = self.RE_SENSOR_TYPE.search(line)
+                if m:
+                    return_value["sensor_type"] = m.groupdict()["sensor_type"]
                     continue
             # ----------------------------------------------------------------
 
@@ -200,7 +210,7 @@ class NgmgShmHpilistParserLogDatum(NgmgBaseLogDatum):
 if __name__ == "__main__":
     logger.debug("starting")
     try:
-        fields_to_index = ["datetime", "keywords", "contents_hash", "source", "event_type", "component_path"]
+        fields_to_index = ["datetime", "keywords", "contents_hash", "source", "event_type", "component_path", "sensor_num", "sensor_type"]
         base_parser.main(APP_NAME, NgmgShmHpilistParserLogDatum, fields_to_index)
     except KeyboardInterrupt:
         logger.debug("CTRL-C")
