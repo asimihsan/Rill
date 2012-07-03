@@ -2,7 +2,7 @@
 #   Box configuration file.
 # ----------------------------------------------------------------------------
 
-production:             no
+production:             yes
 
 friendly name:          altais1
 dns hostname:           altais1-mgmt
