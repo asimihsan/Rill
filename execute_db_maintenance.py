@@ -4,6 +4,7 @@ import os
 import sys
 import pdb
 import time
+import random
 
 import fabric
 from fabric.operations import sudo, run, put
@@ -48,7 +49,8 @@ commands = [ \
              "chown -R mongod:mongod /var/lib/mongo",
              "service mongod start",
              ]
-hosts = ["magpie", "rat", "fox", "rabbit"]
+hosts = ["magpie", "rat", "rabbit"]
+random.shuffle(hosts)
 
 def main():
     logger = logging.getLogger("%s.main" % (APP_NAME, ))

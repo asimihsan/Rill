@@ -16,7 +16,7 @@ import pprint
 # -----------------------------------------------------------------------------
 #   Database constants.
 # -----------------------------------------------------------------------------
-servers = ["magpie:27017", "mink:27017", "rabbit:27107", "rat:27107", "fox:27017"]
+servers = ["magpie:27017", "rabbit:27107", "rat:27107"]
 # -----------------------------------------------------------------------------
 
 import logging
@@ -207,7 +207,7 @@ class Database(object):
                                                  include_search_argument,
                                                  datetime_interval,
                                                  fields_to_return,
-                                                 fields_to_ignore)
+                                                 fields_to_ignore)[0]
 
     @retry()
     def get_shm_memory_data(self,
@@ -222,6 +222,7 @@ class Database(object):
                                                              datetime_interval = datetime_interval,
                                                              fields_to_return = ['contents'],
                                                              fields_to_ignore = ['_id'])
+        full_text_cursor = full_text_cursor[0]
         results = []
         datetime_format = "%Y %b %d %H:%M:%S"
         re_expr = "(?P<month>\S+)\s+(?P<day>\d+)\s+(?P<time>\d+:\d+:\d+).*\((?P<percent_free>\d+)%\)"

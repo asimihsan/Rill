@@ -17,6 +17,7 @@ import argparse
 import pprint
 import tempfile
 from functools import total_ordering
+import re
 
 # ----------------------------------------------------------------------------
 #   Constants.
@@ -27,13 +28,14 @@ eight_hours = datetime.timedelta(hours=8)
 ten_hours = datetime.timedelta(hours=10)
 twelve_hours = datetime.timedelta(hours=12)
 one_day = datetime.timedelta(days=1)
+two_days = datetime.timedelta(days=2)
+three_days = datetime.timedelta(days=3)
 five_days = datetime.timedelta(days=5)
 one_week = datetime.timedelta(days=7)
 ten_days = datetime.timedelta(days=10)
 two_weeks = datetime.timedelta(days=14)
 one_minute = datetime.timedelta(minutes=1)
 LOG_FILENAME = r"/var/log/dump_log_contents.log"
-INTERVAL = ten_hours
 # ----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
@@ -60,16 +62,11 @@ logger.addHandler(fh)
 
 def parse_args():
     parser = argparse.ArgumentParser("Dump logs and view them in vim.")
-    parser.add_argument("--start",
-                        dest="start_datetime",
-                        metavar="DATETIME",
+    parser.add_argument("--interval",
+                        dest="interval",
+                        metavar="STRING",
                         default=None,
-                        help="Start datetime")
-    parser.add_argument("--end",
-                        dest="end_datetime",
-                        metavar="DATETIME",
-                        default=None,
-                        help="End datetime.")
+                        help="Interval, e.g. 'one_day', 'two_days', 'three_days'.")
     parser.add_argument("--collection_name",
                         dest="collection_name",
                         metavar="STRING",
@@ -111,10 +108,10 @@ def main():
         logger.info("collection_name required. Choose from:\n%s" % (pprint.pformat(collection_names), ))
         parser.print_help()
         sys.exit(1)
-    #if args.collection_name not in collection_names:
-    #    logger.error("collection_name '%s' not valid. Choose from:\n%s" % (args.collection_name, pprint.pformat(collection_names), ))
-    #    parser.print_help()
-    #    sys.exit(1)
+    INTERVAL = one_day
+    if args.interval is not None:
+        logger.info("Interval is set to: %s" % (args.interval, ))
+        INTERVAL = globals()[args.interval]
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -122,7 +119,7 @@ def main():
     # ------------------------------------------------------------------------
     oldest_date = datetime.datetime.utcnow() - INTERVAL
     newest_date = datetime.datetime.utcnow()
-    collections = [read_database[collection_name] for collection_name in collection_names if args.collection_name in collection_name]
+    collections = [read_database[collection_name] for collection_name in collection_names if re.search(args.collection_name, collection_name)]
     for collection in collections:
         collection.ensure_index([(datetime_query_string, -1)],
                                 background = True)
@@ -144,10 +141,9 @@ def main():
     class Log(object):
         def __init__(self, cursor):
             self._cursor = cursor
-            self._cnt = 0
             self._count = self.cursor.count(with_limit_and_skip = True)
-            self._current_contents = self._cursor[self._cnt]["contents"]
-            self._current_datetime = self._cursor[self._cnt]["datetime"]
+            self._results = [row for row in self._cursor]
+            self.cnt = 0
 
         @property
         def cursor(self):
@@ -160,8 +156,8 @@ def main():
         @cnt.setter
         def cnt(self, value):
             self._cnt = value
-            self._current_contents = self._cursor[self._cnt]["contents"]
-            self._current_datetime = self._cursor[self._cnt]["datetime"]
+            self._current_contents = self._results[self._cnt]["contents"]
+            self._current_datetime = self._results[self._cnt]["datetime"]
 
         @property
         def count(self):
@@ -175,7 +171,6 @@ def main():
         def current_datetime(self):
             return self._current_datetime
 
-
         def is_finished(self):
             return self._cnt >= (self._count - 1)
 
@@ -187,10 +182,11 @@ def main():
 
         def consume(self):
             rv = self._current_contents
-            self.cnt = self.cnt + 1
+            self.cnt += 1
             return rv
 
-    logs = [Log(cursor) for cursor in cursors]
+    logs = [Log(cursor) for cursor in cursors
+            if cursor.count(with_limit_and_skip = True) > 0]
 
     # ------------------------------------------------------------------------
     #   Dump logs to file and open in vim.
@@ -202,12 +198,13 @@ def main():
     try:
         logger.debug("Writing results to file '%s'..." % (new_file_path, ))
         with open(new_file_path, "w", buffering=4096) as f:
-            while len(logs) > 0:
+            while True:
+                logs = [elem for elem in logs if not elem.is_finished()]
+                if len(logs) == 0:
+                    break
                 current_log = min(logs)
                 value = current_log.consume()
                 f.write(value + "\n")
-                if current_log.is_finished():
-                    logs.remove(current_log)
         logger.debug("Opening %s in vim" % (new_file_path, ))
         os.system("vim %s" % (new_file_path, ))
     finally:

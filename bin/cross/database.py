@@ -3,14 +3,17 @@ import pymongo
 from utilities import retry
 import hashlib
 import base64
+import random
 
 import time
 import functools
 
+import logging
+
 # -----------------------------------------------------------------------------
 #   Database constants.
 # -----------------------------------------------------------------------------
-servers = ["magpie:27017", "mink:27017", "rabbit:27107", "rat:27107", "fox:27017"]
+servers = ["magpie:27017", "rabbit:27107", "rat:27107"]
 # -----------------------------------------------------------------------------
 
 class Database(object):
@@ -23,11 +26,26 @@ class Database(object):
     five_minutes = datetime.timedelta(minutes=5)
     ten_minutes = datetime.timedelta(minutes=10)
 
-    def __init__(self, database_name=None):
+    def __init__(self, database_name=None, logger=None):
         if not database_name:
             database_name = "logs"
 
-        self.connection = pymongo.ReplicaSetConnection(",".join(servers), replicaSet='rill')
+        while 1:
+            try:
+                self.connection = pymongo.ReplicaSetConnection(",".join(servers), replicaSet='rill')
+            except pymongo.errors.AutoReconnect:
+                if logger:
+                    logger.exception("AutoReconnect exception, will continue")
+                random.shuffle(servers)
+                time.sleep(1)
+            except:
+                if logger:
+                    logger.exception("unhandled exception")
+                raise
+            else:
+                if logger:
+                    logger.debug("Database connection established.")
+                break
         self.connection.read_preference = pymongo.ReadPreference.SECONDARY
         self.read_connection = self.connection
         self.write_connection = self.connection

@@ -78,7 +78,7 @@ def create_parser_sub_socket(context, parser_zeromq_binding):
     parser_sub_socket = context.socket(zmq.SUB)
     parser_sub_socket.setsockopt(zmq.SUBSCRIBE, "")
     parser_sub_socket.setsockopt(zmq.HWM, 100) # only allow 100 messages into in-memory queue
-    parser_sub_socket.setsockopt(zmq.SWAP, 500 * 1024 * 1024) # offload 500MB of messages onto disk
+    parser_sub_socket.setsockopt(zmq.SWAP, 10 * 1024 * 1024) # offload 10MB of messages onto disk
     parser_sub_socket.connect(parser_zeromq_binding)
     return parser_sub_socket
 

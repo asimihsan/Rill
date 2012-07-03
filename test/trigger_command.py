@@ -61,7 +61,7 @@ def get_services(service_name_filter):
     return rv
 
 def parse_args():
-    parser = argparse.ArgumentParser("Trigger commands over SSH based on log output.")
+    parser = argparse.ArgumentParser(description="Trigger commands over SSH based on log output.")
     parser.add_argument("--hostname_regexp",
                         dest="hostname_regexp",
                         metavar="REGULAR EXPRESSION",
@@ -82,6 +82,12 @@ def parse_args():
                         action='store_true',
                         default=False,
                         help="Enable verbose debug mode.")
+    parser.add_argument("--remote",
+                        dest="remote",
+                        action='store_true',
+                        default=False,
+                        help="Execute the command remotely on the host.")
+
     args = parser.parse_args()
     if args.verbose:
         logger.setLevel(logging.DEBUG)
@@ -104,9 +110,17 @@ class Service(object):
     def __repr__(self):
         return "{Service: service_name=%s, service_binding=%s, dns_hostname=%s" % (self.service_name, self.service_binding, self.dns_hostname)
 
-def execute_command(hostname, command):
-    logger = logging.getLogger("%s.hostname" % (APP_NAME, ))
-    logger.debug("entry. command: %s" % (command, ))
+def execute_command(hostname, command, remote, event):
+    logger = logging.getLogger("%s.%s" % (APP_NAME, hostname))
+    logger.debug("entry. command: %s, remote: %s" % (command, remote))
+    if remote:
+        logger.debug("executing command remotely.")
+        command = SSH_TAP_COMMAND.substitute(ssh_tap_path = SSH_TAP_PATH,
+                                             hostname = hostname,
+                                             command = args)
+    command = Template(command).substitute(hostname = hostname,
+                                           contents = event["contents"])
+    logger.debug("after substitution, command: %s" % command)
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     stdout_value = proc.communicate()[0]
     logger.info("stdout: %s" % (stdout_value, ))
@@ -141,12 +155,9 @@ def main():
         box_name = str(incoming_decoded["box_name"])
         service = services_lookup[box_name]
         hostname = service.dns_hostname
-        command = SSH_TAP_COMMAND.substitute(ssh_tap_path = SSH_TAP_PATH,
-                                             hostname = hostname,
-                                             command = args.command)
-        logger.info("Hostname hit: '%s'. Executing command: '%s'" % (hostname, command))
+        logger.info("Hostname hit: '%s'. Executing command: '%s'" % (hostname, args.command))
         p = multiprocessing.Process(target = execute_command,
-                                    args = (hostname, command))
+                                    args = (hostname, args.command, args.remote, incoming_decoded))
         p.start()
 
 if __name__ == "__main__":
