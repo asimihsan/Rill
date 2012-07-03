@@ -91,7 +91,7 @@ case class MasspingerActor(masspingerService: Service)
                         bot <- mapHostnameToBots(hostname)
                         if (bot.isResponsive ^ isResponsive)
                     } {
-                        log.debug("bot %s used to be %s, but is now %s".format(bot, bot.isResponsive, isResponsive))
+                        //log.debug("bot %s used to be %s, but is now %s".format(bot, bot.isResponsive, isResponsive))
                         bot.isResponsive = isResponsive
                         if (isResponsive)
                             bot.bot.botRef ! BotIsAliveMessage()

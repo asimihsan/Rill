@@ -54,7 +54,7 @@ case class BotActor(service: Service, masspinger: ActorRef)
     val defaultRegexString = Seq("Assertion.*failed",
                                  "Unhandled exception",
                                  "signal 11",
-                                 "Metaswitch check failed",
+                                 "MetaSwitch check failed",
                                  "detected a deadlock",
                                  "Exception caught on signal",
                                  "Config stub is starting",
@@ -66,10 +66,9 @@ case class BotActor(service: Service, masspinger: ActorRef)
                                  "Request to use GR-303 signaling ID that is already in use",
                                  "Request to use SS7 signaling ID that is already in use",
                                  "HDLCmgr is out of ISDN NAIs",
+                                 "seems to have stopped raising interrupts",
                                  "shm_reboot").mkString(".*(", "|", ").*")
-    val defaultRegex = defaultRegexString.r
-    //val defaultRegex = new automaton.RegExp(defaultRegexString).toAutomaton();
-    //val defaultRegex = new automaton.RunAutomaton(new automaton.RegExp(defaultRegexString).toAutomaton());
+    val defaultRegex = new automaton.RunAutomaton(new automaton.RegExp(defaultRegexString).toAutomaton());
     // -----------------------------------------------------------------------
 
     def addChat(chat: MultiUserChat) = {
@@ -169,12 +168,7 @@ case class BotActor(service: Service, masspinger: ActorRef)
                 log.error("received BotSubscriptionMessage, but no chats are open! Message: %s".format(message))
             }
             require(chats.size > 0)
-            if (((defaultRegex findFirstIn message) isEmpty) == false) {
-            //if ((defaultRegex.run(message))) {
-                for (chat <- chats) {
-                    chat.sendMessage(message)
-                }
-            }
+            if (defaultRegex run message) for (chat <- chats) chat.sendMessage(message)
         } // case BotSubscriptionMessage
         // -------------------------------------------------------------------
         

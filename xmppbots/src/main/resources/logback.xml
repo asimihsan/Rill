@@ -13,7 +13,7 @@
         <file>/var/log/rill/rill_xmppbots.log</file>
         <append>true</append>
         <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
-            <fileNamePattern>rill_xmppbots.log.%i</fileNamePattern>
+            <fileNamePattern>/var/log/rill/rill_xmppbots.log.%i</fileNamePattern>
             <minIndex>1</minIndex>
             <maxIndex>9</maxIndex>
         </rollingPolicy>
