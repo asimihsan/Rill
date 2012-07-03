@@ -148,6 +148,9 @@ class NgmgMsMessagesParserLogDatum(NgmgBaseLogDatum):
         self._excess_lines = []
         return self._dict_representations
 
+    EXCEPTION_TYPES = ["Unhandled exception",
+                       "Handled exception"]
+    RE_EXCEPTION_TYPES = re.compile("(%s)" % "|".join(EXCEPTION_TYPES))
     def handle_ms_failures(self, current_return_value):
         if "contents" not in current_return_value:
             return current_return_value
@@ -163,15 +166,13 @@ class NgmgMsMessagesParserLogDatum(NgmgBaseLogDatum):
             current_return_value["failure_type"] = failure_type
             current_return_value["failure_id"] = failure_id
             return current_return_value
-        elif "Unhandled exception. " in contents:
+        elif self.RE_EXCEPTION_TYPES.search(contents):
             failure_string = contents.rsplit("]", 1)[-1].strip()
-            elems = failure_string.split("Unhandled exception. ")
-            failure_type = "Unhandled exception"
+            elems = failure_string.split("exception. ")
+            failure_type = self.RE_EXCEPTION_TYPES.search(contents).group(1)
             failure_id = elems[-1].strip()
             current_return_value["failure_type"] = failure_type
             current_return_value["failure_id"] = failure_id
-            return current_return_value
-        else:
             return current_return_value
 
     analyzer = StandardAnalyzer()

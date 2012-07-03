@@ -95,6 +95,7 @@ def main(verbose):
             service_registry_cmd += " --verbose"
         logger.debug("service_registry_cmd: %s" % (service_registry_cmd, ))
         proc = start_process(service_registry_cmd, verbose)
+        psutil.Process(proc.pid).nice = -1
         service_registry_process = Process(service_registry_cmd, "service_registry", proc)
         all_processes.append(service_registry_process)
         time.sleep(2)
@@ -125,6 +126,7 @@ def main(verbose):
             masspinger_cmd += " --verbose"
         logger.debug("masspinger_cmd: %s" % (masspinger_cmd, ))
         proc = start_process(masspinger_cmd, verbose)
+        psutil.Process(proc.pid).nice = -1
         masspinger_process = Process(masspinger_cmd, "masspinger", proc)
         all_processes.append(masspinger_process)
 

@@ -256,6 +256,7 @@ def intel_error_count():
     assert(datetime_interval in valid_intervals)
     hostname = bottle.request.forms.get("hostname")
     assert(hostname in ["_all", "alpheratz", "arrakis", "jabbah", "subra", "wolf", "zosma"])
+    context = "0"
     # ------------------------------------------------------------------------
 
     # ------------------------------------------------------------------------
@@ -368,11 +369,12 @@ def intel_error_count():
         sorted_failure_ids_and_counts[failure_type] = sorted_elem
 
     failure_id_to_full_text_link = {}
-    link_template = Template(r"/full_text_search_results?include_search_string=${include_search_string}&datetime_interval=${datetime_interval}&log_type=${log_type}&exclude_search_string=")
+    link_template = Template(r"/full_text_search_results?include_search_string=${include_search_string}&datetime_interval=${datetime_interval}&log_type=${log_type}&context=${context}&exclude_search_string=")
     for failure_id in failure_id_to_count:
         link = link_template.substitute(include_search_string = base64.urlsafe_b64encode(failure_id),
                                         datetime_interval = base64.urlsafe_b64encode(datetime_interval),
-                                        log_type = base64.urlsafe_b64encode(log_type))
+                                        log_type = base64.urlsafe_b64encode(log_type),
+                                        context = base64.urlsafe_b64encode(context))
         failure_id_to_full_text_link[failure_id] = link
 
     template = jinja2_env.get_template('intel_error_count_results.html')
@@ -557,13 +559,13 @@ def full_text_search_results():
         logger.debug("GET has no query args, so let's get them ourselves. %s" % (query_items, ))
         include_search_string_encoded = query_items["include_search_string"]
         exclude_search_string_encoded = query_items["exclude_search_string"]
-        context_encoded = query_items["context"]
+        context_encoded = query_items.get("context", base64.urlsafe_b64encode("0"))
         log_type_encoded = query_items["log_type"]
         datetime_interval_encoded = query_items["datetime_interval"]
     else:
         logger.debug("GET has query items.")
         search_string_encoded = str(bottle.request.forms.get("search_string"))
-        context_encoded = str(bottle.request.forms.get("context"))
+        context_encoded = str(bottle.request.forms.get("context", "0"))
         log_type_encoded = str(bottle.request.forms.get("log_type"))
         datetime_interval_encoded = str(bottle.request.forms.get("datetime_interval"))
 

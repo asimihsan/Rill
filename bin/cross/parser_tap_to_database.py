@@ -95,7 +95,8 @@ def setup_database(collection_name):
                       ]
     for field in fields_to_index:
         try:
-            collection.ensure_index(field, background=True)
+            index_param = [(field, 1), ("datetime", 1)]
+            collection.ensure_index(index_param, background=True)
         except pymongo.errors.OperationFailure:
             logger.exception("Exception when requesting index build. Not a disaster.")
             continue
@@ -127,7 +128,7 @@ def main():
     subscription_socket = context.socket(zmq.SUB)
     subscription_socket.setsockopt(zmq.SUBSCRIBE, "")
     subscription_socket.setsockopt(zmq.HWM, 1000) # only allow 1000 messages into in-memory queue
-    subscription_socket.setsockopt(zmq.SWAP, 500 * 1024 * 1024) # offload 500MB of messages onto disk
+    subscription_socket.setsockopt(zmq.SWAP, 10 * 1024 * 1024) # offload 10MB of messages onto disk
     subscription_socket.connect(args.results_zeromq_binding)
     # ------------------------------------------------------------------------
 
