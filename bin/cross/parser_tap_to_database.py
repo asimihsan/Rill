@@ -92,6 +92,13 @@ def setup_database(collection_name):
                        "failure_id",
                        "error_level",
                        "error_id",
+
+                       # !!AI hack to index ShM HPI fields.
+                       "source",
+                       "event_type",
+                       "component_path",
+                       "sensor_num",
+                       "sensor_type",
                       ]
     for field in fields_to_index:
         try:
@@ -216,7 +223,7 @@ def handle_parser_socket_activity(subscription_socket, collection_name, collecti
                                      int(incoming_object["minute"]),
                                      int(incoming_object["second"]))
     if "millisecond" in incoming_object:
-        datetime_obj.replace(microsecond = int(incoming_object["millisecond"]) * 1000)
+        datetime_obj = datetime_obj.replace(microsecond = int(incoming_object["millisecond"]) * 1000)
     data_to_store = incoming_object.copy()
     for key in ["year", "month", "day", "hour", "minute", "second", "millisecond"]:
         if key in data_to_store:
