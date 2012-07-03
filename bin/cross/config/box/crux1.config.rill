@@ -13,6 +13,9 @@ log files:
     -   name:           messages
         type:           messages
         full path:      /var/log/messages
-
+commands:
+    -   name:           hpilist
+        type:           hpilist
+        command:        "while [[ 1 ]]; do nice -n 19 hpilist -sen; sleep 10; done"
 # ----------------------------------------------------------------------------
         

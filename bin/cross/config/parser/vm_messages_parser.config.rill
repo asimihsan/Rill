@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 
 box type:           virtual machine test box
+parser type:        logfile
 log file type:      messages
 parser:             vm_messages_parser
 

@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 
 box type:           NGMG
+parser type:        logfile
 log file type:      ms_messages
 parser:             ngmg_ms_messages_parser
 

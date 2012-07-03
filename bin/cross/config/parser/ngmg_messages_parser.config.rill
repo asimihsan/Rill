@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 
 box type:           NGMG
+parser type:        logfile
 log file type:      messages
 parser:             ngmg_messages_parser
 

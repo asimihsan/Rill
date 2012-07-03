@@ -29,13 +29,14 @@ import operator
 # -----------------------------------------------------------------------------
 APP_NAME = "rill_start"
 import logging
-logger = logging.getLogger(APP_NAME)
+logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
+logger = logging.getLogger(APP_NAME)
 # -----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
@@ -132,7 +133,8 @@ def main(verbose):
 
         masspinger_tap_cmd = masspinger_tap_template.substitute(executable = masspinger_tap_filepath,
                                                                 masspinger_zeromq_bind = masspinger_zeromq_bind).strip()
-        masspinger_tap_cmd += " --verbose"
+        if global_config.get_masspinger_verbose():
+            masspinger_tap_cmd += " --verbose"
         proc = start_process(masspinger_tap_cmd, verbose)
         masspinger_tap_process = Process(masspinger_tap_cmd, "masspinger_tap", proc)
         all_processes.append(masspinger_tap_process)
@@ -144,7 +146,8 @@ def main(verbose):
         # --------------------------------------------------------------------
 
         # --------------------------------------------------------------------
-        #   We will need one process per log file, let's launch them.
+        #   We will need one process per log file and command,
+        #   let's launch them.
         #
         # robust_ssh_tap_template = Template(""" "${executable}" --masspinger "${masspinger_zeromq_bind}" --ssh_tap "${ssh_tap_zeromq_bind}" --parser "${parser_zeromq_bind}" --parser_name "${parser_name}" --results "${results_zeromq_bind}" --host "${host}" --command "${command}" --username "username" --password "password" """)
         # --------------------------------------------------------------------
@@ -163,6 +166,11 @@ def main(verbose):
                 logger.debug("Global is test, but this is a product box.")
                 continue
 
+            # ----------------------------------------------------------------
+            #   Get a list of ParserConfig objects for both the log
+            #   files we want to tail and the commands we want to execute.
+            # ----------------------------------------------------------------
+            parser_configs_to_use = []
             for log_file in box_config.get_log_files():
                 parser_config = [config for config in parser_configs
                                  if config.get_box_type() == box_config.get_type() and
@@ -173,11 +181,25 @@ def main(verbose):
                 if len(parser_config) > 1:
                     logger.error("Found more than one parser for box config %s, log file %s.\n%s" % (box_config, log_file, pprint.pformat(parser_config)))
                     continue
-                parser_config = parser_config[0]
+                parser_configs_to_use.append((parser_config[0], log_file))
 
+            for command in box_config.get_commands():
+                parser_config = [config for config in parser_configs
+                                 if config.get_box_type() == box_config.get_type() and
+                                    command.get_type() == config.get_command_type()]
+                if len(parser_config) == 0:
+                    logger.error("Could not find parser for box config %s, command %s" % (box_config, command))
+                    continue
+                if len(parser_config) > 1:
+                    logger.error("Found more than one parser for box config %s, command %s.\n%s" % (box_config, command, pprint.pformat(parser_config)))
+                    continue
+                parser_configs_to_use.append((parser_config[0], command))
+            # ----------------------------------------------------------------
+
+            for (parser_config, task_config) in parser_configs_to_use:
                 # ------------------------------------------------------------
                 #   One robust_ssh_tap instance for the real-time contents
-                #   of the log.
+                #   of the log or command.
                 # ------------------------------------------------------------
                 masspinger_zeromq_bind = "tcp://127.0.0.1:%s" % (masspinger_port, )
                 ssh_tap_zeromq_bind = "tcp://127.0.0.1:%s" % (ssh_tap_port, )
@@ -185,8 +207,14 @@ def main(verbose):
                 parser_name = parser_config.get_parser_name()
                 results_zeromq_bind = "tcp://127.0.0.1:%s" % (results_port, )
                 host = box_config.get_dns_hostname()
-                tail_prefix = box_config.get_tail_command()
-                command = "%s %s" % (tail_prefix, log_file.get_full_path(), )
+
+                assert(parser_config.get_parser_type() in parser_config.valid_parser_types)
+                if parser_config.get_parser_type() == "logfile":
+                    tail_prefix = box_config.get_tail_command()
+                    command = "%s %s" % (tail_prefix, task_config.get_full_path(), )
+                elif parser_config.get_parser_type() == "command":
+                    command = "%s" % task_config.get_string()
+
                 username = box_config.get_username()
                 password = box_config.get_password()
                 command = robust_ssh_tap_template.substitute( \
@@ -215,35 +243,35 @@ def main(verbose):
                 #   of the log outputted during network outages are
                 #   in there too.
                 # ------------------------------------------------------------
-                reconcile_log_executable = python_executable + ' ' + reconcile_log_filepath
-                masspinger_zeromq_bind = "tcp://127.0.0.1:%s" % (masspinger_port, )
-                ssh_tap_zeromq_bind = "tcp://127.0.0.1:%s" % (ssh_tap_port + 1, )
-                parser_zeromq_bind = "tcp://0.0.0.0:%s" % (parser_port + 1, )
-                parser_name = parser_config.get_parser_name()
-                host = box_config.get_dns_hostname()
+                #reconcile_log_executable = python_executable + ' ' + reconcile_log_filepath
+                #masspinger_zeromq_bind = "tcp://127.0.0.1:%s" % (masspinger_port, )
+                #ssh_tap_zeromq_bind = "tcp://127.0.0.1:%s" % (ssh_tap_port + 1, )
+                #parser_zeromq_bind = "tcp://0.0.0.0:%s" % (parser_port + 1, )
+                #parser_name = parser_config.get_parser_name()
+                #host = box_config.get_dns_hostname()
 
-                log_file_fullpath = log_file.get_full_path()
-                #log_file_fullpath = log_file_fullpath.replace(r"/", r"\/")
-                #command = """for file in \\\\\$( find %s\\* ); do nice -n 19 ionice -c3 cat \\\\\$file; done""" % (log_file_fullpath, )
-                command = """find %s* | xargs | while read file; do sleep 5; nice -n 19 ionice -c3 cat \\\\\$file; done""" % (log_file_fullpath, )
+                #log_file_fullpath = log_file.get_full_path()
+                ##log_file_fullpath = log_file_fullpath.replace(r"/", r"\/")
+                ##command = """for file in \\\\\$( find %s\\* ); do nice -n 19 ionice -c3 cat \\\\\$file; done""" % (log_file_fullpath, )
+                #command = """find %s* | xargs | while read file; do sleep 5; nice -n 19 ionice -c3 cat \\\\\$file; done""" % (log_file_fullpath, )
 
-                username = box_config.get_username()
-                password = box_config.get_password()
-                collection_name = "%s_%s" % (host, parser_name)
-                command = reconcile_log_template.substitute( \
-                        executable = reconcile_log_executable,
-                        masspinger_zeromq_bind = masspinger_zeromq_bind,
-                        ssh_tap_zeromq_bind = ssh_tap_zeromq_bind,
-                        parser_zeromq_bind = parser_zeromq_bind,
-                        parser_name = parser_name,
-                        results_zeromq_bind = results_zeromq_bind,
-                        host = host,
-                        command = command,
-                        username = username,
-                        password = password,
-                        collection_name = collection_name).strip()
-                if global_config.get_reconcile_log_verbose():
-                    command += " --verbose"
+                #username = box_config.get_username()
+                #password = box_config.get_password()
+                #collection_name = "%s_%s" % (host, parser_name)
+                #command = reconcile_log_template.substitute( \
+                #        executable = reconcile_log_executable,
+                #        masspinger_zeromq_bind = masspinger_zeromq_bind,
+                #        ssh_tap_zeromq_bind = ssh_tap_zeromq_bind,
+                #        parser_zeromq_bind = parser_zeromq_bind,
+                #        parser_name = parser_name,
+                #        results_zeromq_bind = results_zeromq_bind,
+                #        host = host,
+                #        command = command,
+                #        username = username,
+                #        password = password,
+                #        collection_name = collection_name).strip()
+                #if global_config.get_reconcile_log_verbose():
+                #    command += " --verbose"
 
                 # !!AI reconcile_log leaks memory like nobody's business, so
                 # don't use for now.
@@ -256,6 +284,7 @@ def main(verbose):
         # --------------------------------------------------------------------
 
         logger.debug("robust_ssh_tap commands:\n%s" % (pprint.pformat([elem[0] for elem in commands]), ))
+
         for (command, host, parser_name, results_zeromq_bind) in commands:
             #logger.debug("robust_ssh_tap command: %s" % (command, ))
             proc = start_process(command, verbose)
@@ -384,7 +413,7 @@ if __name__ == "__main__":
                         help="Enable verbose debug mode for rill_start. To enable verbose mode on subsequent scripts modify the global config.")
     args = parser.parse_args()
     if args.verbose:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
         ch.setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled.")
 
