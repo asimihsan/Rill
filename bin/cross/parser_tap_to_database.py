@@ -215,9 +215,12 @@ def handle_parser_socket_activity(subscription_socket, collection_name, collecti
                                      int(incoming_object["hour"]),
                                      int(incoming_object["minute"]),
                                      int(incoming_object["second"]))
+    if "millisecond" in incoming_object:
+        datetime_obj.replace(microsecond = int(incoming_object["millisecond"]) * 1000)
     data_to_store = incoming_object.copy()
-    for key in ["year", "month", "day", "hour", "minute", "second"]:
-        data_to_store.pop(key)
+    for key in ["year", "month", "day", "hour", "minute", "second", "millisecond"]:
+        if key in data_to_store:
+            data_to_store.pop(key)
     data_to_store["datetime"] = datetime_obj
     # --------------------------------------------------------
 

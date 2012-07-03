@@ -2,9 +2,9 @@
 #   Parser config.
 # -----------------------------------------------------------------------------
 
-box type:           NGMG
-parser type:        logfile
-log file type:      stdout
-parser:             ngmg_stdout_parser
+box type:           NGMG ShM
+parser type:        command
+command type:       hpilist
+parser:             ngmg_shm_hpilist_parser
 
 # -----------------------------------------------------------------------------

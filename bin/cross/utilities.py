@@ -152,18 +152,25 @@ class BoxConfig(object):
                          "username",
                          "password",
                          "type",
-                         "log files",
                          "production"]:
             if root_key not in box_config_tree:
                 logger.error("'%s' missing" % (root_key, ))
                 return False
-        log_files = box_config_tree["log files"]
+        log_files = box_config_tree.get("log files", [])
         for log_file in log_files:
             for root_key in ["name",
                              "type",
                              "full path"]:
                 if root_key not in log_file:
                     logger.error("'%s' missing from log_file" % (root_key, ))
+                    return False
+        commands = box_config_tree.get("commands", [])
+        for command in commands:
+            for root_key in ["name",
+                             "type",
+                             "command"]:
+                if root_key not in command:
+                    logger.error("'%s' missing from command" % root_key)
                     return False
         return True
 
@@ -177,11 +184,17 @@ class BoxConfig(object):
         self.type = box_config_tree["type"]
         self.production = box_config_tree["production"]
         self.log_files = []
-        for log_file in box_config_tree["log files"]:
+        for log_file in box_config_tree.get("log files", []):
             log_file = LogFile(log_file["name"],
                                log_file["type"],
                                log_file["full path"])
             self.log_files.append(log_file)
+        self.commands = []
+        for command in box_config_tree.get("commands", []):
+            command = Command(command["name"],
+                              command["type"],
+                              command["command"])
+            self.commands.append(command)
         self.valid = True
 
     def get_dns_hostname(self):
@@ -189,6 +202,9 @@ class BoxConfig(object):
 
     def get_log_files(self):
         return self.log_files
+
+    def get_commands(self):
+        return self.commands
 
     def get_type(self):
         return self.type
@@ -208,6 +224,9 @@ class BoxConfig(object):
         else:
             return "tail -f"
 
+    def __str__(self):
+        return "{BoxConfig: dns_hostname=%s, type=%s, log_files=%s, commands=%s}" % (self.dns_hostname, self.type, self.log_files, self.commands)
+
 class LogFile(object):
     def __init__(self, log_name, log_type, log_full_path):
         self.log_name = log_name
@@ -223,20 +242,60 @@ class LogFile(object):
     def get_full_path(self):
         return self.log_full_path
 
+    def __str__(self):
+        return "{LogFile: name=%s, type=%s, full_path=%s}" % (self.log_name, self.log_type, self.log_full_path)
+
+    def __repr__(self):
+        return str(self)
+
+class Command(object):
+    def __init__(self, command_name, command_type, command_string):
+        self.command_name = command_name
+        self.command_type = command_type
+        self.command_string = command_string
+
+    def get_name(self):
+        return self.command_name
+
+    def get_type(self):
+        return self.command_type
+
+    def get_string(self):
+        return self.command_string
+
+    def __str__(self):
+        return "{Commmand: name=%s, type=%s, string=%s}" % (self.command_name, self.command_type, self.command_string)
+
+    def __repr__(self):
+        return str(self)
+
 class ParserConfig(object):
+    valid_parser_types = ["logfile", "command"]
+
     def __init__(self, parser_config_tree):
         self.valid = False
         self.parse(parser_config_tree)
 
     def validate_tree(self, parser_config_tree):
         logger = logging.getLogger("%s.ParserConfig.validate_tree" % (APP_NAME, ))
-        logger.debug("entry.")
+        logger.debug("entry. parser_config_tree: %s" % parser_config_tree)
 
         for root_key in ["box type",
-                         "log file type",
+                         "parser type",
                          "parser"]:
             if root_key not in parser_config_tree:
                 logger.error("'%s' missing" % (root_key, ))
+                return False
+        if parser_config_tree["parser type"] not in self.valid_parser_types:
+            logger.error("'parser type' %s is not valid, judging by: %s" % (parser_config_tree["parser type"], self.valid_parser_types))
+            return False
+        if parser_config_tree["parser type"] == "logfile":
+            if "log file type" not in parser_config_tree:
+                logger.error("'log file type' missing for parser of type 'logfile'")
+                return False
+        elif parser_config_tree["parser type"] == "command":
+            if "command type" not in parser_config_tree:
+                logger.error("'command type' missing for parser of type 'command'")
                 return False
         return True
 
@@ -244,12 +303,20 @@ class ParserConfig(object):
         if not self.validate_tree(parser_config_tree):
             return None
         self.box_type = parser_config_tree["box type"]
-        self.log_file_type = parser_config_tree["log file type"]
+        self.parser_type = parser_config_tree["parser type"]
+        self.log_file_type = parser_config_tree.get("log file type", None)
+        self.command_type = parser_config_tree.get("command type", None)
         self.parser = parser_config_tree["parser"]
         self.valid = True
 
     def get_parser_name(self):
         return self.parser
+
+    def get_parser_type(self):
+        return self.parser_type
+
+    def get_command_type(self):
+        return self.command_type
 
     def get_log_file_type(self):
         return self.log_file_type

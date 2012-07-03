@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 
 box type:           NGMG
+parser type:        logfile
 log file type:      ep
 parser:             ngmg_ep_parser
 
